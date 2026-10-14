@@ -24,22 +24,24 @@ import { symlinks } from "./symlinks.js";
 
 describe("symlinks()", () => {
 
-	const condition = "source";
-
 	const root = realpathSync(mkdtempSync(join(tmpdir(), "rack-symlinks-")));
 
 	const project = join(root, "project");
 	const checkout = join(root, "checkout");
+	const fork = join(root, "fork");
+	const other = join(root, "other");
 	const installed = join(project, "node_modules", "installed");
 
-	const manifest = {
-		type: "module",
-		exports: {
-			".": { [condition]: "./src/index.ts", default: "./dist/index.js" },
-			"./sub": { [condition]: "./src/sub.ts", default: "./dist/sub.js" },
-			"./hidden": null
-		}
-	};
+	function manifest(condition: string) {
+		return {
+			type: "module",
+			exports: {
+				".": { [condition]: "./src/index.ts", default: "./dist/index.js" },
+				"./sub": { [condition]: "./src/sub.ts", default: "./dist/sub.js" },
+				"./hidden": null
+			}
+		};
+	}
 
 	let server: ViteDevServer; // assigned once by the setup hook
 
@@ -49,34 +51,40 @@ describe("symlinks()", () => {
 		writeFileSync(path, content);
 	}
 
-	function pkg(path: string, name: string) {
-		file(join(path, "package.json"), JSON.stringify({ name, ...manifest }));
+	function pkg(path: string, name: string, condition = "source") {
+		file(join(path, "package.json"), JSON.stringify({ name, ...manifest(condition) }));
 		["src/index.ts", "src/sub.ts", "dist/index.js", "dist/sub.js", "dist/hidden.js"].forEach(source =>
 			file(join(path, source), "export {};\n")
 		);
 	}
 
-	async function resolved(id: string) {
-		return (await server.environments.ssr.pluginContainer.resolveId(id, join(project, "index.ts")))?.id;
+	async function resolved(id: string, importer = "index.ts") {
+		return (await server.environments.ssr.pluginContainer.resolveId(id, join(project, importer)))?.id;
 	}
 
 
 	beforeAll(async () => {
 
 		pkg(checkout, "linked");
-		pkg(join(checkout, "..", "scoped"), "@scope/linked");
+		pkg(fork, "linked");
+		pkg(other, "other", "development");
+		pkg(join(root, "scoped"), "@scope/linked");
 		pkg(installed, "installed");
 
 		mkdirSync(join(project, "node_modules", "@scope"), { recursive: true });
+		mkdirSync(join(project, "packages", "nested", "node_modules"), { recursive: true });
+
 		symlinkSync(checkout, join(project, "node_modules", "linked"), "dir");
 		symlinkSync(join(root, "scoped"), join(project, "node_modules", "@scope", "linked"), "dir");
+		symlinkSync(other, join(project, "node_modules", "other"), "dir");
+		symlinkSync(fork, join(project, "packages", "nested", "node_modules", "linked"), "dir");
 
 		server = await createServer({
 			root: project,
 			configFile: false,
 			logLevel: "silent",
 			server: { middlewareMode: true, hmr: false, ws: false },
-			plugins: [symlinks({ project, condition })]
+			plugins: [symlinks({ conditions: ["source", "development"] })]
 		});
 
 	});
@@ -101,12 +109,34 @@ describe("symlinks()", () => {
 			expect(await resolved("@scope/linked/sub")).toBe(join(root, "scoped", "src/sub.ts"));
 		});
 
+		it("should resolve packages matching any of the listed conditions", async () => {
+			expect(await resolved("other")).toBe(join(other, "src/index.ts"));
+		});
+
 		it("should leave subpaths excluded by a null target to the default resolution", async () => {
 			await expect(resolved("linked/hidden")).rejects.toThrow();
 		});
 
 		it("should leave subpaths not exported to the default resolution", async () => {
 			await expect(resolved("linked/missing")).rejects.toThrow();
+		});
+
+	});
+
+	describe("lookup", () => {
+
+		it("should find links hoisted to an ancestor of the importer", async () => {
+			expect(await resolved("linked", "packages/member/src/index.ts")).toBe(join(checkout, "src/index.ts"));
+		});
+
+		it("should prefer the links nearest to the importer", async () => {
+			expect(await resolved("linked", "packages/nested/src/index.ts")).toBe(join(fork, "src/index.ts"));
+		});
+
+		it("should look up imports with no importer from the project root", async () => {
+			expect((await server.environments.ssr.pluginContainer.resolveId("linked"))?.id).toBe(
+				join(checkout, "src/index.ts")
+			);
 		});
 
 	});

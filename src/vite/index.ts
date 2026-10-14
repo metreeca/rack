@@ -17,7 +17,11 @@
 /**
  * Vite plugins for building and testing npm packages.
  *
- * @module vite
+ * | Plugin           | Purpose                                                                         |
+ * |------------------|---------------------------------------------------------------------------------|
+ * | {@link symlinks} | Runs tests against the live source of locally linked packages, with no rebuild |
+ *
+ * @module
  */
 
 export { symlinks } from "./symlinks.js";

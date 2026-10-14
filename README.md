@@ -7,9 +7,11 @@ Everyday tooling for npm package development.
 **@metreeca/rack** collects build, test and documentation tooling for recurring npm package development needs, so each
 package consumes a single maintained copy instead of carrying its own. Tools are grouped by the toolchain they extend:
 
-| Subpath               | Contents     |
-|-----------------------|--------------|
-| `@metreeca/rack/vite` | Vite plugins |
+| Subpath                     | Contents     |
+|-----------------------------|--------------|
+| [@metreeca/rack/vite][vite] | Vite plugins |
+
+[vite]: https://metreeca.github.io/rack/modules.html
 
 # Installation
 

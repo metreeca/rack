@@ -15,19 +15,46 @@
  */
 
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { exports, type Package } from "resolve.exports";
 import type { Plugin } from "vite";
 
 
 /**
- * Creates a plugin resolving imports of linked packages to their TypeScript source.
+ * Creates a plugin running tests against the live source of locally linked packages, with no rebuild.
  *
- * Tests run against the working tree of workspace members and of sibling checkouts linked by `npm run setup`, with no
- * prior build. Packages installed from the registry keep resolving to their build, as they ship no source.
+ * Imports of workspace members and of sibling checkouts linked into `node_modules` resolve to their TypeScript source,
+ * so edits are picked up as they are saved. Packages installed from the registry keep resolving to their build.
  *
- * The plugin replaces `resolve.conditions`, which fails on registry packages whose exports name the condition: Vite
- * does not fall back to `default` when a condition target is missing.
+ * Packages are looked up as Node does, from the `node_modules` nearest to the importer up through its ancestors, so
+ * links hoisted to a workspace root are found from any member; imports with no importer start from the Vite root.
+ *
+ * The plugin replaces `resolve.conditions`, which breaks registry packages whose exports name a condition without
+ * publishing its target: Vite does not fall back to `default` when that target is missing from the installed files.
+ *
+ * @example
+ *
+ * Linked packages map each exported subpath to its source under a custom condition, next to the build:
+ *
+ * ```json
+ * {
+ *   "exports": {
+ *     ".": { "source": "./src/index.ts", "default": "./dist/index.js" }
+ *   }
+ * }
+ * ```
+ *
+ * The consuming project registers the plugin with the same condition in its Vite or Vitest configuration:
+ *
+ * ```typescript
+ * import { symlinks } from "@metreeca/rack/vite";
+ * import { defineConfig } from "vitest/config";
+ *
+ * export default defineConfig({
+ *   plugins: [symlinks({ conditions: "source" })]
+ * });
+ * ```
  *
  * @param options The resolution settings
  *
@@ -35,22 +62,19 @@ import type { Plugin } from "vite";
  */
 export function symlinks({
 
-	project,
-	condition
+	conditions
 
 }: {
 
 	/**
-	 * The project directory holding the `node_modules` to read links from.
+	 * The export conditions mapping each subpath to its source file, as listed in `customConditions`; where a package
+	 * matches more than one, the key order of its own `exports` decides which applies.
 	 */
-	project: string
-
-	/**
-	 * The export condition mapping each subpath to its source file, as listed in `customConditions`.
-	 */
-	condition: string
+	conditions: string | readonly string[]
 
 }): Plugin {
+
+	const $conditions = typeof conditions === "string" ? [conditions] : conditions;
 
 	const manifests = new Map<string, Package>(); // memoised by link real path
 
@@ -59,17 +83,18 @@ export function symlinks({
 		name: "symlinks",
 		enforce: "pre",
 
-		resolveId: id => {
+		resolveId(id, importer) {
 
 			const name = id.match(/^(@[^/]+\/)?[^/]+/)?.[0];
-			const link = name && join(project, "node_modules", name);
+			const base = importer && isAbsolute(importer) ? dirname(importer) : this.environment.config.root;
+			const link = name && lookup(name, base);
 
-			if ( link && lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink() ) {
+			if ( link ) {
 
 				try {
 
 					const path = realpathSync(link);
-					const target = exports(manifest(path), id, { conditions: [condition] })?.[0];
+					const target = exports(manifest(path), id, { conditions: $conditions })?.[0];
 
 					return target === undefined ? null : resolve(path, target);
 
@@ -89,21 +114,32 @@ export function symlinks({
 
 	};
 
+
+	function lookup(name: string, directory: string): string | undefined {
+
+		const path = (createRequire(join(directory, sep)).resolve.paths(name) ?? [])
+			.map(modules => join(modules, name))
+			.find(candidate => lstatSync(candidate, { throwIfNoEntry: false }));
+
+		return path !== undefined && lstatSync(path).isSymbolicLink() ? path : undefined;
+
+	}
+
 	function manifest(path: string): Package {
 
 		const cached = manifests.get(path);
 
-		if ( cached !== undefined ) {
-
-			return cached;
-
-		} else {
+		if ( cached === undefined ) {
 
 			const loaded: Package = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
 
 			manifests.set(path, loaded);
 
 			return loaded;
+
+		} else {
+
+			return cached;
 
 		}
 
