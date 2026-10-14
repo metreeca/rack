@@ -20,4 +20,4 @@
  * @module vite
  */
 
-export {};
+export { symlinks } from "./symlinks.js";

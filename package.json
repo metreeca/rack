@@ -25,7 +25,6 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./dist/index.js",
     "./vite": "./dist/vite/index.js"
   },
   "files": [
@@ -44,7 +43,11 @@
     "check": "npx vitest --typecheck run",
     "proof": "npx typedoc && (npx typedoc --watch & npx wds --root-dir docs --watch --open)"
   },
+  "dependencies": {
+    "resolve.exports": "^2.0.4"
+  },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "@web/dev-server": "^1.0.0",
     "typedoc": "^0.28.14",
     "typescript": "^5.9.3",

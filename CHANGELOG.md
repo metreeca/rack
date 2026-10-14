@@ -7,6 +7,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0](https://github.com/metreeca/rack/compare/v0.1.0...HEAD)
 
+### Added
+
+- `symlinks` Vite plugin resolving imports of packages linked into `node_modules` to their TypeScript source, so tests
+  run against the working tree of workspace members and sibling checkouts with no prior build
+
+### Removed
+
+- `@metreeca/rack` root entry point, which exported nothing: each tool is imported from the subpath of the toolchain
+  it extends, such as `@metreeca/rack/vite`, so code importing the bare package name has to switch to that subpath
+
 ## [0.1.0](https://github.com/metreeca/rack/releases/tag/v0.1.0) - 2026-10-14
 
 Initial release, establishing the package as the single maintained home for the build, test and documentation

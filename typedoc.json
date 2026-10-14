@@ -1,7 +1,6 @@
 {
   "tsconfig": "./tsconfig.build.json",
   "entryPoints": [
-    "src/index.ts",
     "src/vite/index.ts"
   ],
   "includeVersion": true,
