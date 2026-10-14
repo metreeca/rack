@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/rack/compare/v0.3.0...HEAD)
 
+### Fixed
+
+- `cp`, `ln` and `rm` commands kept executable when a linked Rack checkout is rebuilt, so the npm scripts of linked
+  consumers no longer fall through to the system commands with the same name after `npm run build` in the checkout
+
 ## [0.3.0](https://github.com/metreeca/rack/compare/v0.2.0...v0.3.0) - 2026-10-14
 
 ### Added

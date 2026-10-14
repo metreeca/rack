@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+import { spawnSync } from "node:child_process";
+import { readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { cp } from "./cp.js";
 import { cli } from "./index.core.js";
@@ -26,6 +29,34 @@ describe("@metreeca/rack/tool", () => {
 
 	it("should export the tools", async () => {
 		expect({ ...tool }).toEqual({ cp, ln, rm }); // spread drops the namespace Symbol.toStringTag key
+	});
+
+});
+
+describe("commands", () => {
+
+	const root = resolve(import.meta.dirname, "../..");
+
+	const { bin }: { bin: Record<string, string> } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+
+	it("should install the tools as commands", async () => {
+		expect(Object.keys(bin)).toEqual(["cp", "ln", "rm"]);
+	});
+
+	it.each(Object.entries(bin))("should build %s as an executable", async (_, path) => {
+		expect(statSync(join(root, path)).mode & 0o111).toBe(0o111);
+	});
+
+	it.each([
+		["cp", "<target> <pattern>..."],
+		["ln", "[<deps>]..."],
+		["rm", "<pattern>..."]
+	])("should run %s from the build", async (name, help) => {
+
+		const { status, stdout } = spawnSync(join(root, bin[name]), ["--help"], { encoding: "utf8" });
+
+		expect({ status, stdout }).toEqual({ status: 0, stdout: `Usage: ${name} ${help}\n` });
+
 	});
 
 });
