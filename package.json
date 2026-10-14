@@ -1,7 +1,7 @@
 {
   "name": "@metreeca/rack",
   "version": "0.2.0",
-  "description": "Shared development tooling for @metreeca packages.",
+  "description": "Everyday tooling for npm package development.",
   "keywords": [
     "typescript",
     "tooling",

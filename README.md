@@ -2,10 +2,10 @@
 
 [![npm](https://img.shields.io/npm/v/@metreeca/rack)](https://www.npmjs.com/package/@metreeca/rack)
 
-Shared development tooling for @metreeca packages.
+Everyday tooling for npm package development.
 
-**@metreeca/rack** collects the build, test and documentation tooling shared across @metreeca packages, so each package
-consumes a single maintained copy instead of carrying its own. Tools are grouped by the toolchain they extend:
+**@metreeca/rack** collects build, test and documentation tooling for recurring npm package development needs, so each
+package consumes a single maintained copy instead of carrying its own. Tools are grouped by the toolchain they extend:
 
 | Subpath               | Contents     |
 |-----------------------|--------------|

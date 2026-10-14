@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `symlinks` Vite plugin resolving imports of packages linked into `node_modules` to their TypeScript source, so tests
   run against the working tree of workspace members and sibling checkouts with no prior build
 
+### Changed
+
+- Package scope widened from tooling for @metreeca packages to everyday tooling for npm package development
+
 ### Removed
 
 - `@metreeca/rack` root entry point, which exported nothing: each tool is imported from the subpath of the toolchain

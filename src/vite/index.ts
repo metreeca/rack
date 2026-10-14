@@ -15,7 +15,7 @@
  */
 
 /**
- * Vite plugins for building and testing `@metreeca` packages.
+ * Vite plugins for building and testing npm packages.
  *
  * @module vite
  */
