@@ -33,8 +33,8 @@ if ( import.meta.main ) {
  *
  * Patterns matching nothing are ignored, so that the same command can run again on an already clean tree.
  *
- * Each removed file or directory is printed on stdout once, relative to the current folder. Matches inside a removed
- * directory are not listed, even where a pattern selects them explicitly, as they go along with their ancestor.
+ * Each removed file or directory is printed on stdout once as `rm <path>`, relative to the current folder. Matches
+ * inside a removed directory go along with it and are not listed, even where a pattern selects them explicitly.
  *
  * @example
  *
@@ -61,7 +61,7 @@ export function rm(...patterns: readonly string[]): void {
 
 	paths.forEach(path => {
 		rmSync(path, { recursive: true, force: true });
-		console.log(relative(".", path));
+		console.log(`rm ${relative(".", path)}`);
 	});
 
 }

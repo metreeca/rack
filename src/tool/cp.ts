@@ -37,7 +37,7 @@ if ( import.meta.main ) {
  *
  * Directories matched by a pattern are skipped: only files are copied.
  *
- * Each copied file is printed on stdout, one per line, by its source path as the pattern matched it.
+ * Each copied file is printed on stdout as `cp <source>`, with the source path spelled as the pattern matched it.
  *
  * @example
  *
@@ -68,7 +68,7 @@ export function cp(target: string, ...patterns: readonly string[]): void {
 	patterns.flatMap(copies).forEach(({ source, destination }) => { // nothing is copied until every pattern matched
 		mkdirSync(dirname(destination), { recursive: true });
 		copyFileSync(source, destination);
-		console.log(source);
+		console.log(`cp ${source}`);
 	});
 
 

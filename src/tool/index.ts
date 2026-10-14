@@ -20,8 +20,9 @@
  * Each tool is installed as a command alongside the package and behaves the same on every platform and shell. Inside
  * npm scripts, these commands take precedence over system commands with the same name, such as the Unix `cp`.
  *
- * Every tool lists the paths it acts on to stdout, one per line, so that a script log shows what changed on disk. It
- * prints its usage with `--help`, and exits with a non-zero status after printing an error message to stderr.
+ * Every tool lists the paths it acts on to stdout, one per line prefixed with the tool name, as in `cp src/index.css`,
+ * so that a script log shows what changed on disk and which command changed it. It prints its usage with `--help`, and
+ * exits with a non-zero status after printing an error message to stderr, prefixed with the tool name as well.
  *
  * | Command                               | Purpose                                                                  |
  * |---------------------------------------|--------------------------------------------------------------------------|
