@@ -37,6 +37,8 @@ if ( import.meta.main ) {
  *
  * Directories matched by a pattern are skipped: only files are copied.
  *
+ * Each copied file is printed on stdout, one per line, by its source path as the pattern matched it.
+ *
  * @example
  *
  * Shipping stylesheets next to the compiled modules, from an npm script:
@@ -66,6 +68,7 @@ export function cp(target: string, ...patterns: readonly string[]): void {
 	patterns.flatMap(copies).forEach(({ source, destination }) => { // nothing is copied until every pattern matched
 		mkdirSync(dirname(destination), { recursive: true });
 		copyFileSync(source, destination);
+		console.log(source);
 	});
 
 

@@ -17,6 +17,7 @@
  */
 
 import { globSync, rmSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import { cli } from "./index.core.js";
 
 
@@ -31,6 +32,9 @@ if ( import.meta.main ) {
  * Removes the files and directories matching a set of glob patterns, with their whole content.
  *
  * Patterns matching nothing are ignored, so that the same command can run again on an already clean tree.
+ *
+ * Each removed file or directory is printed on stdout once, relative to the current folder. Matches inside a removed
+ * directory are not listed, even where a pattern selects them explicitly, as they go along with their ancestor.
  *
  * @example
  *
@@ -52,8 +56,12 @@ export function rm(...patterns: readonly string[]): void {
 		throw new TypeError("missing pattern operand");
 	}
 
-	patterns.flatMap(pattern => globSync(pattern)).forEach(path => { // nested matches may be gone with their ancestors
+	const matches = [...new Set(patterns.flatMap(pattern => globSync(pattern)).map(path => resolve(path)))];
+	const paths = matches.filter(path => !matches.some(match => path.startsWith(match + sep))); // gone with ancestors
+
+	paths.forEach(path => {
 		rmSync(path, { recursive: true, force: true });
+		console.log(relative(".", path));
 	});
 
 }

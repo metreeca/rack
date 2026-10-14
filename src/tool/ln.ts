@@ -63,6 +63,9 @@ if ( import.meta.main ) {
  * replace installed copies and never add new packages. Missing folders are skipped, so the same command runs
  * unchanged on every machine, including machines where some of the named folders hold no local checkouts at all.
  *
+ * Each package link is printed on stdout, relative to the current package, such as `node_modules/@scope/name`; links
+ * to `bin` commands are created silently, since they follow from the package links already listed.
+ *
  * @example
  *
  * Linking the sibling checkouts of a package after a clean install, from an npm script:
@@ -123,6 +126,8 @@ export function ln(...deps: readonly string[]): void {
 		const target = join(modules, name);
 
 		replace(target, path);
+
+		console.log(relative(home, target));
 
 		commands(path, name).forEach(([command, script]) => {
 
