@@ -12,6 +12,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `cp`, `ln` and `rm` exported as functions from `@metreeca/rack/tool`, so build scripts can run the tools in process
   and handle their failures as thrown errors rather than as error messages and non-zero process exit statuses
 
+### Changed
+
+- `vite` peer dependency made optional, so projects using only the command line tools no longer have to install Vite;
+  a project that does install it still needs Vite 8, which the `symlinks` plugin from `@metreeca/rack/vite` targets
+
 ## [0.2.0](https://github.com/metreeca/rack/compare/v0.1.0...v0.2.0) - 2026-10-14
 
 ### Added

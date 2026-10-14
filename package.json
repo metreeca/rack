@@ -63,6 +63,11 @@
   "peerDependencies": {
     "vite": "^8.0.0"
   },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
   "allowScripts": {
     "fsevents": false
   }
