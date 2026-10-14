@@ -1,0 +1,60 @@
+{
+  "name": "@metreeca/rack",
+  "version": "0.1.0",
+  "description": "Shared development tooling for @metreeca packages.",
+  "keywords": [
+    "typescript",
+    "tooling",
+    "vite"
+  ],
+  "homepage": "https://metreeca.github.io/rack/",
+  "bugs": {
+    "url": "https://github.com/metreeca/rack/issues",
+    "email": "info@metreeca.com"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Metreeca",
+    "email": "info@metreeca.com",
+    "url": "https://www.metreeca.com/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metreeca/rack.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./dist/index.js",
+    "./vite": "./dist/vite/index.js"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "clean": "rm -rf dist docs node_modules",
+    "prime": "npm ci",
+    "setup": "npm ci",
+    "build": "rm -rf dist docs && tsc -p tsconfig.build.json && npx typedoc",
+    "check": "npx vitest --typecheck run",
+    "proof": "npx typedoc && (npx typedoc --watch & npx wds --root-dir docs --watch --open)"
+  },
+  "devDependencies": {
+    "@web/dev-server": "^1.0.0",
+    "typedoc": "^0.28.14",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.0",
+    "vitest": "^4.0.13"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "allowScripts": {
+    "fsevents": false
+  }
+}
