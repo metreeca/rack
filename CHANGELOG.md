@@ -11,6 +11,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `symlinks` Vite plugin resolving imports of packages linked into `node_modules` to their TypeScript source, so tests
   run against the working tree of workspace members and sibling checkouts with no prior build
+- `@metreeca/rack/tool` module for Unix-like command line tools behaving the same in npm scripts on every platform
+- `cp` command copying the files matched by glob patterns into a directory, keeping their relative layout
 
 ### Changed
 

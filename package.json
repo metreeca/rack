@@ -25,7 +25,11 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./vite": "./dist/vite/index.js"
+    "./vite": "./dist/vite/index.js",
+    "./tool": "./dist/tool/index.js"
+  },
+  "bin": {
+    "cp": "./dist/tool/cp.js"
   },
   "files": [
     "README.md",

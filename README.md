@@ -9,9 +9,12 @@ package consumes a single maintained copy instead of carrying its own. Tools are
 
 | Subpath                     | Contents     |
 |-----------------------------|--------------|
+| [@metreeca/rack/tool][tool] | CLI tools    |
 | [@metreeca/rack/vite][vite] | Vite plugins |
 
-[vite]: https://metreeca.github.io/rack/modules.html
+[tool]: https://metreeca.github.io/rack/modules/tool.html
+
+[vite]: https://metreeca.github.io/rack/modules/vite.html
 
 # Installation
 
