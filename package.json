@@ -30,6 +30,7 @@
   },
   "bin": {
     "cp": "./dist/tool/cp.js",
+    "ln": "./dist/tool/ln.js",
     "rm": "./dist/tool/rm.js"
   },
   "files": [

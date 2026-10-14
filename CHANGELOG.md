@@ -13,6 +13,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   run against the working tree of workspace members and sibling checkouts with no prior build
 - `@metreeca/rack/tool` module for Unix-like command line tools behaving the same in npm scripts on every platform
 - `cp` command copying the files matched by glob patterns into a directory, keeping their relative layout
+- `ln` command linking the local checkouts of dependencies into `node_modules`, along with the packages they depend
+  on in turn, so the dependencies of a package or monorepo resolve to their working trees
 - `rm` command removing the files and directories matched by glob patterns, with their content
 
 ### Changed
