@@ -17,8 +17,7 @@
 /**
  * Shared development tooling for `@metreeca` packages.
  *
- * Tools are grouped by the toolchain they extend and imported from the matching subpath, for instance
- * `@metreeca/rack/vite` for Vite plugins.
+ * Tools are grouped by the toolchain they extend and imported from its subpath, such as `@metreeca/rack/vite`.
  *
  * @module index
  */
