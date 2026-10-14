@@ -4,8 +4,8 @@
 
 Shared development tooling for @metreeca packages.
 
-**@metreeca/rack** collects the build, test and documentation tooling shared across @metreeca packages, so each
-package consumes a single maintained copy instead of carrying its own. Tools are grouped by the toolchain they extend:
+**@metreeca/rack** collects the build, test and documentation tooling shared across @metreeca packages, so each package
+consumes a single maintained copy instead of carrying its own. Tools are grouped by the toolchain they extend:
 
 | Subpath               | Contents     |
 |-----------------------|--------------|
