@@ -29,7 +29,7 @@ import {
 	statSync,
 	symlinkSync
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, parse, relative, resolve, sep } from "node:path";
 import { cli } from "./index.core.js";
 
 
@@ -134,7 +134,7 @@ export function ln(...deps: readonly string[]): void {
 			replace(join(modules, ".bin", command), join(target, script));
 
 			if ( existsSync(join(path, script)) ) {
-				chmodSync(join(path, script), 0o755); // as npm does, since builds such as tsc emit scripts without the mode
+				chmodSync(join(path, script), 0o755); // as npm does on install, since tsc emits no mode
 			}
 
 		});
@@ -151,13 +151,9 @@ export function ln(...deps: readonly string[]): void {
 
 		const { bin } = manifest(path);
 
-		if ( process.platform === "win32" ) {
-			return []; // npm exposes commands through generated shims rather than links
-		} else if ( typeof bin === "string" ) {
-			return [[name.replace(/^@[^/]+\//, ""), bin]];
-		} else {
-			return Object.entries(bin ?? {});
-		}
+		return process.platform === "win32" ? []
+			: typeof bin === "string" ? [[name.replace(/^@[^/]+\//, ""), bin]]
+				: Object.entries(bin ?? {});
 
 	}
 
@@ -174,11 +170,21 @@ export function ln(...deps: readonly string[]): void {
 				const path = linked.get(name);
 
 				if ( path !== undefined ) {
-					return existsSync(copy) && realpathSync(copy) === realpathSync(path) ? [] : [{ modules, name, path }];
+
+					return existsSync(copy) && realpathSync(copy) === realpathSync(path) ? [] : [{
+						modules,
+						name,
+						path
+					}];
+
 				} else if ( lstatSync(copy).isSymbolicLink() ) {
+
 					return []; // a link into another checkout, inspected as a root of its own when linked
+
 				} else {
+
 					return copies(join(copy, "node_modules"));
+
 				}
 
 			});
@@ -192,14 +198,22 @@ export function ln(...deps: readonly string[]): void {
 		] : [];
 	}
 
-	function checkout(path: string, parent: string = dirname(path)): string {
-		if ( parent === dirname(parent) ) {
-			return path;
-		} else if ( existsSync(join(parent, "package.json")) ) {
-			return packages(parent).includes(path) ? parent : path;
-		} else {
-			return checkout(path, dirname(parent));
-		}
+	function checkout(path: string): string {
+
+		const parent = ancestors(path).find(ancestor => existsSync(join(ancestor, "package.json")));
+
+		return parent !== undefined && packages(parent).includes(path) ? parent : path;
+
+	}
+
+	function ancestors(path: string): readonly string[] { // nearest first, file system root excluded
+
+		const { root } = parse(path);
+
+		return relative(root, dirname(path)).split(sep).filter(Boolean)
+			.map((_, index, segments) => join(root, ...segments.slice(0, index+1)))
+			.reverse();
+
 	}
 
 	function children(path: string): readonly string[] {
