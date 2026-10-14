@@ -12,6 +12,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `cp`, `ln` and `rm` prefix each path they print on stdout with the tool name, as in `cp src/index.css`, so a script
   log shows which command changed each path; scripts parsing the bare paths printed until 0.4 have to strip the prefix
 
+### Fixed
+
+- `symlinks` plugin sharing the peers of linked packages also with dependencies prebundled by the Vite optimizer, so a
+  prebundled library no longer loads a second copy of a peer, such as Preact, next to the one the project resolves
+
 ## [0.4.0](https://github.com/metreeca/rack/compare/v0.3.0...v0.4.0) - 2026-10-14
 
 ### Added

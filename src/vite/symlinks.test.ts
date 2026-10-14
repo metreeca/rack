@@ -162,9 +162,12 @@ describe("symlinks()", () => {
 		const host = join(project, "node_modules", "peer", "index.js");
 
 		async function peered(id: string, importer: string) {
-			await resolved("bound"); // registers the peers of the linked package
 			return (await server.environments.ssr.pluginContainer.resolveId(id, join(bound, importer)))?.id;
 		}
+
+		it("should deduplicate peers of linked packages in prebundled dependencies", async () => {
+			expect(server.config.resolve.dedupe).toContain("peer");
+		});
 
 		it("should resolve peers imported by linked packages from the project", async () => {
 			expect(await peered("peer", "src/index.ts")).toBe(host);

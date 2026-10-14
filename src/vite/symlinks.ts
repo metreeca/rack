@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { exports, type Package } from "resolve.exports";
@@ -35,10 +35,14 @@ type Manifest = Package & {
  * Packages are looked up as Node does, from the `node_modules` nearest to the importer up through its ancestors, so
  * links hoisted to a workspace root are found from any member; imports with no importer start from the Vite root.
  *
- * The `peerDependencies` of linked packages are shared with the project: they resolve from the Vite root whoever the
- * importer is, also from registry packages installed in a checkout, so that the project and its linked packages load a
- * single copy of them, as libraries holding module state such as Preact hooks require. Only peers of packages already
- * resolved through the plugin are shared; all other imports keep resolving from the checkout they are found in.
+ * The `peerDependencies` of linked packages are shared with the project, so the project and its linked packages load a
+ * single copy of each peer, as libraries holding module state such as Preact hooks require. Peers resolve from the Vite
+ * root whoever imports them, including registry packages installed in a checkout and dependencies prebundled by the
+ * optimizer. All other imports keep resolving from the checkout they are found in.
+ *
+ * Peers of packages linked into the `node_modules` of the Vite root or of its ancestors are shared from the start.
+ * Peers of packages linked only nearer to an importer, as in a workspace member, are shared once the package is first
+ * resolved, and stay duplicated in prebundled dependencies, which the optimizer builds before that point.
  *
  * The plugin replaces `resolve.conditions`, which breaks registry packages whose exports name a condition without
  * publishing its target: Vite does not fall back to `default` when that target is missing from the installed files.
@@ -93,6 +97,16 @@ export function symlinks({
 		name: "symlinks",
 		enforce: "pre",
 
+		config({ root }) {
+
+			const peers = links(resolve(root ?? "")).flatMap(link =>
+				Object.keys(manifest(realpathSync(link)).peerDependencies ?? {})
+			);
+
+			return { resolve: { dedupe: [...new Set(peers)] } };
+
+		},
+
 		resolveId(id, importer, options) {
 
 			const root = this.environment.config.root;
@@ -140,6 +154,25 @@ export function symlinks({
 			.find(candidate => lstatSync(candidate, { throwIfNoEntry: false }));
 
 		return path !== undefined && lstatSync(path).isSymbolicLink() ? path : undefined;
+
+	}
+
+	function links(directory: string): readonly string[] {
+
+		const parent = dirname(directory);
+		const modules = join(directory, "node_modules");
+
+		const entries = lstatSync(modules, { throwIfNoEntry: false })?.isDirectory()
+			? readdirSync(modules).flatMap(entry => entry.startsWith("@")
+				? readdirSync(join(modules, entry)).map(name => join(modules, entry, name))
+				: [join(modules, entry)]
+			)
+			: [];
+
+		return [
+			...entries.filter(entry => lstatSync(entry).isSymbolicLink()),
+			...(parent === directory ? [] : links(parent))
+		];
 
 	}
 
