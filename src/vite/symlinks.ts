@@ -21,6 +21,11 @@ import { exports, type Package } from "resolve.exports";
 import type { Plugin } from "vite";
 
 
+type Manifest = Package & {
+	readonly peerDependencies?: Readonly<Record<string, string>>
+};
+
+
 /**
  * Creates a plugin running tests against the live source of locally linked packages, with no rebuild.
  *
@@ -29,6 +34,11 @@ import type { Plugin } from "vite";
  *
  * Packages are looked up as Node does, from the `node_modules` nearest to the importer up through its ancestors, so
  * links hoisted to a workspace root are found from any member; imports with no importer start from the Vite root.
+ *
+ * The `peerDependencies` of linked packages are shared with the project: they resolve from the Vite root whoever the
+ * importer is, also from registry packages installed in a checkout, so that the project and its linked packages load a
+ * single copy of them, as libraries holding module state such as Preact hooks require. Only peers of packages already
+ * resolved through the plugin are shared; all other imports keep resolving from the checkout they are found in.
  *
  * The plugin replaces `resolve.conditions`, which breaks registry packages whose exports name a condition without
  * publishing its target: Vite does not fall back to `default` when that target is missing from the installed files.
@@ -76,17 +86,21 @@ export function symlinks({
 
 	const $conditions = typeof conditions === "string" ? [conditions] : conditions;
 
-	const manifests = new Map<string, Package>(); // memoised by link real path
+	const manifests = new Map<string, Manifest>(); // memoised by link real path, also tracking the peers to share
 
 	return {
 
 		name: "symlinks",
 		enforce: "pre",
 
-		resolveId(id, importer) {
+		resolveId(id, importer, options) {
 
+			const root = this.environment.config.root;
 			const name = id.match(/^(@[^/]+\/)?[^/]+/)?.[0];
-			const base = importer && isAbsolute(importer) ? dirname(importer) : this.environment.config.root;
+			const peer = name !== undefined && [...manifests.values()].some(({ peerDependencies }) =>
+				peerDependencies !== undefined && Object.hasOwn(peerDependencies, name)
+			);
+			const base = !peer && importer && isAbsolute(importer) ? dirname(importer) : root;
 			const link = name && lookup(name, base);
 
 			if ( link ) {
@@ -103,6 +117,10 @@ export function symlinks({
 					return null;
 
 				}
+
+			} else if ( peer ) { // falls back to the default resolution if missing from the project
+
+				return this.resolve(id, join(root, "package.json"), { ...options, skipSelf: true });
 
 			} else {
 
@@ -125,13 +143,13 @@ export function symlinks({
 
 	}
 
-	function manifest(path: string): Package {
+	function manifest(path: string): Manifest {
 
 		const cached = manifests.get(path);
 
 		if ( cached === undefined ) {
 
-			const loaded: Package = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
+			const loaded: Manifest = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
 
 			manifests.set(path, loaded);
 

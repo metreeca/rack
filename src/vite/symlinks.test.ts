@@ -30,6 +30,7 @@ describe("symlinks()", () => {
 	const checkout = join(root, "checkout");
 	const fork = join(root, "fork");
 	const other = join(root, "other");
+	const bound = join(root, "bound");
 	const installed = join(project, "node_modules", "installed");
 
 	function manifest(condition: string) {
@@ -51,11 +52,16 @@ describe("symlinks()", () => {
 		writeFileSync(path, content);
 	}
 
-	function pkg(path: string, name: string, condition = "source") {
-		file(join(path, "package.json"), JSON.stringify({ name, ...manifest(condition) }));
+	function pkg(path: string, name: string, condition = "source", peerDependencies = {}) {
+		file(join(path, "package.json"), JSON.stringify({ name, ...manifest(condition), peerDependencies }));
 		["src/index.ts", "src/sub.ts", "dist/index.js", "dist/sub.js", "dist/hidden.js"].forEach(source =>
 			file(join(path, source), "export {};\n")
 		);
+	}
+
+	function dep(path: string, name: string) {
+		file(join(path, "package.json"), JSON.stringify({ name, type: "module", exports: "./index.js" }));
+		file(join(path, "index.js"), "export {};\n");
 	}
 
 	async function resolved(id: string, importer = "index.ts") {
@@ -71,12 +77,22 @@ describe("symlinks()", () => {
 		pkg(join(root, "scoped"), "@scope/linked");
 		pkg(installed, "installed");
 
+		pkg(bound, "bound", "source", { peer: "*" });
+
+		["peer", "private"].forEach(name => {
+			dep(join(project, "node_modules", name), name);
+			dep(join(bound, "node_modules", name), name);
+		});
+
+		dep(join(bound, "node_modules", "indirect"), "indirect");
+
 		mkdirSync(join(project, "node_modules", "@scope"), { recursive: true });
 		mkdirSync(join(project, "packages", "nested", "node_modules"), { recursive: true });
 
 		symlinkSync(checkout, join(project, "node_modules", "linked"), "dir");
 		symlinkSync(join(root, "scoped"), join(project, "node_modules", "@scope", "linked"), "dir");
 		symlinkSync(other, join(project, "node_modules", "other"), "dir");
+		symlinkSync(bound, join(project, "node_modules", "bound"), "dir");
 		symlinkSync(fork, join(project, "packages", "nested", "node_modules", "linked"), "dir");
 
 		server = await createServer({
@@ -137,6 +153,29 @@ describe("symlinks()", () => {
 			expect((await server.environments.ssr.pluginContainer.resolveId("linked"))?.id).toBe(
 				join(checkout, "src/index.ts")
 			);
+		});
+
+	});
+
+	describe("peer dependencies", () => {
+
+		const host = join(project, "node_modules", "peer", "index.js");
+
+		async function peered(id: string, importer: string) {
+			await resolved("bound"); // registers the peers of the linked package
+			return (await server.environments.ssr.pluginContainer.resolveId(id, join(bound, importer)))?.id;
+		}
+
+		it("should resolve peers imported by linked packages from the project", async () => {
+			expect(await peered("peer", "src/index.ts")).toBe(host);
+		});
+
+		it("should resolve peers imported by dependencies of linked packages from the project", async () => {
+			expect(await peered("peer", "node_modules/indirect/index.js")).toBe(host);
+		});
+
+		it("should resolve other dependencies of linked packages from their checkout", async () => {
+			expect(await peered("private", "src/index.ts")).toBe(join(bound, "node_modules", "private", "index.js"));
 		});
 
 	});

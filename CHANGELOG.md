@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0](https://github.com/metreeca/rack/compare/v0.3.0...HEAD)
 
+### Added
+
+- `symlinks` plugin sharing the `peerDependencies` of linked packages with the project, so the project and its linked
+  packages load a single copy of each peer, such as Preact, without a hand-kept `resolve.dedupe` list
+
 ### Fixed
 
 - `cp`, `ln` and `rm` commands kept executable when a linked Rack checkout is rebuilt, so the npm scripts of linked
