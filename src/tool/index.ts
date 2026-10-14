@@ -25,6 +25,7 @@
  * | Tool                       | Purpose                                                                     |
  * |----------------------------|-----------------------------------------------------------------------------|
  * | `cp <target> <pattern>...` | Copies files matching glob patterns into a directory, keeping their layout  |
+ * | `rm <pattern>...`          | Removes files and directories matching glob patterns, with their content    |
  *
  * @module
  */

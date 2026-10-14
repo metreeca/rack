@@ -29,7 +29,8 @@
     "./tool": "./dist/tool/index.js"
   },
   "bin": {
-    "cp": "./dist/tool/cp.js"
+    "cp": "./dist/tool/cp.js",
+    "rm": "./dist/tool/rm.js"
   },
   "files": [
     "README.md",
