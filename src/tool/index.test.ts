@@ -15,8 +15,20 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
+import { cp } from "./cp.js";
 import { cli } from "./index.core.js";
+import * as tool from "./index.js";
+import { ln } from "./ln.js";
+import { rm } from "./rm.js";
 
+
+describe("@metreeca/rack/tool", () => {
+
+	it("should export the tools", async () => {
+		expect({ ...tool }).toEqual({ cp, ln, rm }); // spread drops the namespace Symbol.toStringTag key
+	});
+
+});
 
 describe("cli()", () => {
 

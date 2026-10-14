@@ -23,13 +23,18 @@
  * Every tool lists the paths it acts on to stdout, one per line, so that a script log shows what changed on disk. It
  * prints its usage with `--help`, and exits with a non-zero status after printing an error message to stderr.
  *
- * | Tool                       | Purpose                                                                     |
- * |----------------------------|-----------------------------------------------------------------------------|
- * | `cp <target> <pattern>...` | Copies files matching glob patterns into a directory, keeping their layout  |
- * | `ln [<deps>]...`           | Links dependencies to their local checkouts instead of registry releases    |
- * | `rm <pattern>...`          | Removes files and directories matching glob patterns, with their content    |
+ * | Command                               | Purpose                                                                  |
+ * |---------------------------------------|--------------------------------------------------------------------------|
+ * | {@link cp `cp <target> <pattern>...`} | Copies files matching glob patterns to a directory, keeping their layout |
+ * | {@link rm `rm <pattern>...`}          | Removes files and directories matching glob patterns, with their content |
+ * | {@link ln `ln [<deps>]...`}           | Links dependencies to their local checkouts instead of registry releases |
+ *
+ * Build scripts can call the same tools as functions, passing the command operands as arguments: a function throws on
+ * failure instead of printing an error message to stderr and setting a non-zero exit status for the process.
  *
  * @module
  */
 
-export {};
+export { cp } from "./cp.js";
+export { ln } from "./ln.js";
+export { rm } from "./rm.js";

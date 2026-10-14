@@ -41,7 +41,7 @@ if ( import.meta.main ) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Links the local checkouts of the dependencies of the current package into its `node_modules`.
+ * Links the local checkouts of the dependencies of the package in the current folder into its `node_modules`.
  *
  * The current package, and in a monorepo each of its workspace members, then builds and runs against the working
  * trees of its dependencies instead of their registry releases. Dependencies are matched to checkouts by package name.
