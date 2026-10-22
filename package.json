@@ -57,7 +57,7 @@
     "@web/dev-server": "^1.0.0",
     "typedoc": "^0.28.14",
     "typescript": "^5.9.3",
-    "vite": "^8.3.0",
+    "vite": "^8.3.5",
     "vitest": "^4.0.13"
   },
   "peerDependencies": {
