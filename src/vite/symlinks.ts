@@ -14,16 +14,11 @@
  * limitations under the License.
  */
 
-import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { exports, type Package } from "resolve.exports";
 import type { Plugin } from "vite";
-
-
-type Manifest = Package & {
-	readonly peerDependencies?: Readonly<Record<string, string>>
-};
 
 
 /**
@@ -35,14 +30,9 @@ type Manifest = Package & {
  * Packages are looked up as Node does, from the `node_modules` nearest to the importer up through its ancestors, so
  * links hoisted to a workspace root are found from any member; imports with no importer start from the Vite root.
  *
- * The `peerDependencies` of linked packages are shared with the project, so the project and its linked packages load a
- * single copy of each peer, as libraries holding module state such as Preact hooks require. Peers resolve from the Vite
- * root whoever imports them, including registry packages installed in a checkout and dependencies prebundled by the
- * optimizer. All other imports keep resolving from the checkout they are found in.
- *
- * Peers of packages linked into the `node_modules` of the Vite root or of its ancestors are shared from the start.
- * Peers of packages linked only nearer to an importer, as in a workspace member, are shared once the package is first
- * resolved, and stay duplicated in prebundled dependencies, which the optimizer builds before that point.
+ * Imports made by linked packages resolve from the checkout they are found in, peers included: link checkouts with
+ * the `ln` command of `@metreeca/rack`, which shares the copies of their peers with the project, so the project and
+ * its linked packages load a single copy of each peer, as libraries holding module state such as Preact hooks require.
  *
  * The plugin replaces `resolve.conditions`, which breaks registry packages whose exports name a condition without
  * publishing its target: Vite does not fall back to `default` when that target is missing from the installed files.
@@ -90,31 +80,17 @@ export function symlinks({
 
 	const $conditions = typeof conditions === "string" ? [conditions] : conditions;
 
-	const manifests = new Map<string, Manifest>(); // memoised by link real path, also tracking the peers to share
+	const manifests = new Map<string, Package>(); // memoised by link real path
 
 	return {
 
 		name: "symlinks",
 		enforce: "pre",
 
-		config({ root }) {
+		resolveId(id, importer) {
 
-			const peers = links(resolve(root ?? "")).flatMap(link =>
-				Object.keys(manifest(realpathSync(link)).peerDependencies ?? {})
-			);
-
-			return { resolve: { dedupe: [...new Set(peers)] } };
-
-		},
-
-		resolveId(id, importer, options) {
-
-			const root = this.environment.config.root;
 			const name = id.match(/^(@[^/]+\/)?[^/]+/)?.[0];
-			const peer = name !== undefined && [...manifests.values()].some(({ peerDependencies }) =>
-				peerDependencies !== undefined && Object.hasOwn(peerDependencies, name)
-			);
-			const base = !peer && importer && isAbsolute(importer) ? dirname(importer) : root;
+			const base = importer && isAbsolute(importer) ? dirname(importer) : this.environment.config.root;
 			const link = name && lookup(name, base);
 
 			if ( link ) {
@@ -131,10 +107,6 @@ export function symlinks({
 					return null;
 
 				}
-
-			} else if ( peer ) { // falls back to the default resolution if missing from the project
-
-				return this.resolve(id, join(root, "package.json"), { ...options, skipSelf: true });
 
 			} else {
 
@@ -157,32 +129,13 @@ export function symlinks({
 
 	}
 
-	function links(directory: string): readonly string[] {
-
-		const parent = dirname(directory);
-		const modules = join(directory, "node_modules");
-
-		const entries = lstatSync(modules, { throwIfNoEntry: false })?.isDirectory()
-			? readdirSync(modules).flatMap(entry => entry.startsWith("@")
-				? readdirSync(join(modules, entry)).map(name => join(modules, entry, name))
-				: [join(modules, entry)]
-			)
-			: [];
-
-		return [
-			...entries.filter(entry => lstatSync(entry).isSymbolicLink()),
-			...(parent === directory ? [] : links(parent))
-		];
-
-	}
-
-	function manifest(path: string): Manifest {
+	function manifest(path: string): Package {
 
 		const cached = manifests.get(path);
 
 		if ( cached === undefined ) {
 
-			const loaded: Manifest = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
+			const loaded: Package = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
 
 			manifests.set(path, loaded);
 

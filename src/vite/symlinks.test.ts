@@ -84,8 +84,6 @@ describe("symlinks()", () => {
 			dep(join(bound, "node_modules", name), name);
 		});
 
-		dep(join(bound, "node_modules", "indirect"), "indirect");
-
 		mkdirSync(join(project, "node_modules", "@scope"), { recursive: true });
 		mkdirSync(join(project, "packages", "nested", "node_modules"), { recursive: true });
 
@@ -157,28 +155,22 @@ describe("symlinks()", () => {
 
 	});
 
-	describe("peer dependencies", () => {
+	describe("dependencies of linked packages", () => {
 
-		const host = join(project, "node_modules", "peer", "index.js");
-
-		async function peered(id: string, importer: string) {
-			return (await server.environments.ssr.pluginContainer.resolveId(id, join(bound, importer)))?.id;
+		async function imported(id: string) {
+			return (await server.environments.ssr.pluginContainer.resolveId(id, join(bound, "src/index.ts")))?.id;
 		}
 
-		it("should deduplicate peers of linked packages in prebundled dependencies", async () => {
-			expect(server.config.resolve.dedupe).toContain("peer");
+		it("should leave deduplication of peers to the default resolution", async () => {
+			expect(server.config.resolve.dedupe).not.toContain("peer");
 		});
 
-		it("should resolve peers imported by linked packages from the project", async () => {
-			expect(await peered("peer", "src/index.ts")).toBe(host);
+		it("should resolve peers from their checkout", async () => {
+			expect(await imported("peer")).toBe(join(bound, "node_modules", "peer", "index.js"));
 		});
 
-		it("should resolve peers imported by dependencies of linked packages from the project", async () => {
-			expect(await peered("peer", "node_modules/indirect/index.js")).toBe(host);
-		});
-
-		it("should resolve other dependencies of linked packages from their checkout", async () => {
-			expect(await peered("private", "src/index.ts")).toBe(join(bound, "node_modules", "private", "index.js"));
+		it("should resolve other dependencies from their checkout", async () => {
+			expect(await imported("private")).toBe(join(bound, "node_modules", "private", "index.js"));
 		});
 
 	});

@@ -7,6 +7,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/rack/compare/v0.5.0...HEAD)
 
+### Added
+
+- `ln` links the copies a linked checkout installs of the peers of its linked packages to the copies of the current
+  package, so every tool, `tsc` and the IDE included, loads a single copy of each peer such as Preact or Vite
+
+### Changed
+
+- `symlinks` plugin resolving the imports of linked packages, peers included, from the checkout they are found in, and
+  no longer extending `resolve.dedupe`: projects relying on it to share peers have to link their checkouts with `ln`
+
 ## [0.5.0](https://github.com/metreeca/rack/compare/v0.4.0...v0.5.0) - 2026-10-14
 
 ### Changed
