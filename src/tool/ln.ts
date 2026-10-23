@@ -65,7 +65,7 @@ if ( import.meta.main ) {
  * checkout shared by several projects serves all of them alike. Projects running Vite or Vitest load a single copy
  * of the packages a linked checkout shares with them through the `symlinks` plugin of `@metreeca/rack/vite`.
  * Missing folders are skipped, so the same command runs unchanged on every machine, including machines where some of
- * the named folders hold no local checkouts at all.
+ * the named folders hold no local checkouts at all and the package runs against its registry dependencies.
  *
  * Each package link is printed on stdout relative to the current package, as in `ln node_modules/@scope/name`;
  * links to `bin` commands are created silently, since they follow from the package links already listed above.
