@@ -9,6 +9,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `@metreeca/rack/node` module hooks running a Node process against the TypeScript source of linked packages, so a
+  script, a server or an IDE run configuration started with `node --import @metreeca/rack/node` picks up sibling
+  edits with no rebuild; the hooks read the conditions from the nearest `tsconfig.json`, leave installed packages on
+  their build, load a single copy of each linked package and its peers, and resolve the `.js` relative imports of
+  TypeScript sources to the `.ts` files next to them, so no loader such as `tsx` is needed for erasable syntax
 - `symlinks` plugin deduplicating linked packages along with their peers, and resolving a package a linked checkout
   installs for itself from the project links, so a project loads one copy of each shared package from its working
   tree whatever its linked checkouts have installed, with no setup to repeat after an install in a checkout

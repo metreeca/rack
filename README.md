@@ -10,9 +10,12 @@ package consumes a single maintained copy instead of carrying its own. Tools are
 | Subpath                     | Contents     |
 |-----------------------------|--------------|
 | [@metreeca/rack/tool][tool] | CLI tools    |
+| [@metreeca/rack/node][node] | Node hooks   |
 | [@metreeca/rack/vite][vite] | Vite plugins |
 
 [tool]: https://metreeca.github.io/rack/modules/tool.html
+
+[node]: https://metreeca.github.io/rack/modules/node.html
 
 [vite]: https://metreeca.github.io/rack/modules/vite.html
 

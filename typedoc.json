@@ -1,8 +1,9 @@
 {
   "tsconfig": "./tsconfig.build.json",
   "entryPoints": [
-    "src/vite/index.ts",
-    "src/tool/index.ts"
+    "src/tool/index.ts",
+    "src/node/index.ts",
+    "src/vite/index.ts"
   ],
   "includeVersion": true,
   "sort": [

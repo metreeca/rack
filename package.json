@@ -23,10 +23,13 @@
     "url": "git+https://github.com/metreeca/rack.git"
   },
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/node/index.js"
+  ],
   "exports": {
-    "./vite": "./dist/vite/index.js",
-    "./tool": "./dist/tool/index.js"
+    "./tool": "./dist/tool/index.js",
+    "./node": "./dist/node/index.js",
+    "./vite": "./dist/vite/index.js"
   },
   "bin": {
     "ush": "./dist/tool/index.js"
