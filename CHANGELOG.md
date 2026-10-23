@@ -36,6 +36,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `markdown-it` development dependency upgraded to 14.3.3, fixing GHSA-gfr2-rv44-r23c and GHSA-vfgh-jcmw-g37q;
   the package is used only to build the documentation, so consumers are not affected
+- `vitest` development dependency upgraded to 4.1.12, fixing GHSA-qxg6-89mg-rqv8 and GHSA-xp26-3454-mjgp; the
+  package is used only to run the test suite and never reaches the published build, so consumers are not affected
 
 ## [0.5.0](https://github.com/metreeca/rack/compare/v0.4.0...v0.5.0) - 2026-10-14
 
