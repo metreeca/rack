@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/rack/compare/v0.5.0...HEAD)
 
+### Security
+
+- `markdown-it` development dependency upgraded to 14.3.3, fixing GHSA-gfr2-rv44-r23c and GHSA-vfgh-jcmw-g37q;
+  the package is used only to build the documentation, so consumers are not affected
+
 ## [0.5.0](https://github.com/metreeca/rack/compare/v0.4.0...v0.5.0) - 2026-10-14
 
 ### Changed
