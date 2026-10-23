@@ -24,4 +24,4 @@
  * @module
  */
 
-export { symlinks } from "./symlinks.js";
+export { symlinks, type Plugin } from "./symlinks.js";

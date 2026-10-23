@@ -17,9 +17,34 @@
 import { realpathSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { exports } from "resolve.exports";
-import type { Plugin } from "vite";
 import { bare, lookup, manifest, shared } from "../symlinks.js";
 
+
+/**
+ * The plugin created by {@link symlinks}, accepted wherever a Vite or Vitest configuration takes a `Plugin`.
+ *
+ * The type is spelled out in full rather than imported from Vite, so that a project type-checking a configuration
+ * against a linked `@metreeca/rack` checkout loads the Vite and `@types/node` declarations it installs for itself
+ * only, never a second copy from the checkout. Vite and Vitest configurations thus type-check against the same
+ * declarations whether `@metreeca/rack` is installed from the registry or linked to a local checkout.
+ */
+export type Plugin = Readonly<{
+
+	name: string
+	enforce: "pre"
+
+	config(config: Readonly<{ root?: string }>): Readonly<{ resolve: Readonly<{ dedupe: string[] }> }> // mutable: as Vite declares it
+
+	resolveId(
+		this: Readonly<{ environment: Readonly<{ config: Readonly<{ root: string }> }> }>,
+		id: string,
+		importer?: string
+	): string | null
+
+}>;
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Creates a plugin running tests against the live source of locally linked packages, with no rebuild.

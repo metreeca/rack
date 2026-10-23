@@ -7,6 +7,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/rack/compare/v0.6.0...HEAD)
 
+### Fixed
+
+- `symlinks` plugin typed with no import from Vite, so a project type-checking its Vite or Vitest configuration
+  against a linked `@metreeca/rack` checkout no longer loads a second copy of the Vite and `@types/node`
+  declarations from the checkout, which crashed `tsc` with `Debug Failure. False expression: parameter should have
+  errors when reporting errors` whenever the two copies disagreed; the `vite` entries projects added to `paths` in
+  `tsconfig.json` to work around the crash are no longer needed and can be removed from every consumer
+
 ## [0.6.0](https://github.com/metreeca/rack/compare/v0.5.0...v0.6.0) - 2026-10-23
 
 ### Added
