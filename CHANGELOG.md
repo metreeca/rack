@@ -9,13 +9,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `ln` links the copies a linked checkout installs of the peers of its linked packages to the copies of the current
-  package, so every tool, `tsc` and the IDE included, loads a single copy of each peer such as Preact or Vite
+- `symlinks` plugin deduplicating linked packages along with their peers, and resolving a package a linked checkout
+  installs for itself from the project links, so a project loads one copy of each shared package from its working
+  tree whatever its linked checkouts have installed, with no setup to repeat after an install in a checkout
 
 ### Changed
 
-- `symlinks` plugin resolving the imports of linked packages, peers included, from the checkout they are found in, and
-  no longer extending `resolve.dedupe`: projects relying on it to share peers have to link their checkouts with `ln`
+- `ln` no longer replaces the copies installed inside linked checkouts, so an install in one checkout never changes
+  what another project loads and a checkout shared by several projects serves all of them alike; checkouts that
+  relied on a consumer to link their own dependencies have to run their own `npm run setup` once
+
+### Fixed
+
+- `symlinks` plugin deduplicating the peers of packages linked only into a workspace member, which were found once
+  the package was first resolved and so stayed duplicated in the dependencies prebundled by the Vite optimizer
 
 ## [0.5.0](https://github.com/metreeca/rack/compare/v0.4.0...v0.5.0) - 2026-10-14
 

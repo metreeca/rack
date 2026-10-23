@@ -170,26 +170,19 @@ describe("ln()", () => {
 
 		});
 
-		it("should replace copies in linked checkouts", async () => {
+		it("should leave copies in linked checkouts alone", async () => {
 			copy("deps/http", "@x/core");
 			copy("deps/keep", "@x/blue");
 			ln();
-			expect(target("deps/http", "@x/core")).toBe(path("deps/core"));
-			expect(target("deps/keep", "@x/blue")).toBe(path("deps/blue"));
+			expect(target("deps/http", "@x/core")).toBe(path("deps/http/node_modules/@x/core"));
+			expect(target("deps/keep", "@x/blue")).toBe(path("deps/keep/node_modules/@x/blue"));
 		});
 
-		it("should replace copies in the monorepos of linked members given as deps", async () => {
-
-			copy("deps/keep", "@x/blue");
-
-			ln(
-				path("deps/keep/packages/connectors/keep-rest"),
-				path("deps/keep/packages/components/keep"),
-				path("deps/blue")
-			);
-
-			expect(target("deps/keep", "@x/blue")).toBe(path("deps/blue"));
-
+		it("should leave the peers of linked packages in their checkouts alone", async () => {
+			copy("deps/app", "@x/core");
+			copy("deps/blue", "@x/core");
+			ln();
+			expect(target("deps/blue", "@x/core")).toBe(path("deps/blue/node_modules/@x/core"));
 		});
 
 		it("should not install into linked checkouts", async () => {
@@ -201,80 +194,6 @@ describe("ln()", () => {
 			copy("deps/tool", "@x/core");
 			ln();
 			expect(target("deps/tool", "@x/core")).toBe(path("deps/tool/node_modules/@x/core"));
-		});
-
-	});
-
-	describe("peers", () => {
-
-		function copy(dir: string, name: string) {
-			manifest(`${dir}/node_modules/${name}`, { name, version: "1.0.0" });
-		}
-
-		function target(dir: string, name: string) {
-			return realpathSync(path(`${dir}/node_modules/${name}`));
-		}
-
-
-		beforeEach(async () => {
-			manifest("deps/blue", { name: "@x/blue", peerDependencies: { "@x/core": "^1.0.0", "peer": "^1.0.0" } });
-			copy("deps/app", "peer");
-		});
-
-
-		it("should replace the peers of linked packages in their checkouts with the copies of the current package", async () => {
-			copy("deps/blue", "peer");
-			ln();
-			expect(target("deps/blue", "peer")).toBe(path("deps/app/node_modules/peer"));
-		});
-
-		it("should replace the peers of linked members in the monorepos holding them", async () => {
-			manifest("deps/keep/packages/components/keep", { name: "@x/keep", peerDependencies: { "peer": "^1.0.0" } });
-			copy("deps/keep", "peer");
-			ln();
-			expect(target("deps/keep", "peer")).toBe(path("deps/app/node_modules/peer"));
-		});
-
-		it("should link the commands of shared peers into the checkouts", async () => {
-
-			manifest("deps/app/node_modules/peer", { name: "peer", version: "1.0.0", bin: "peer.js" });
-			writeFileSync(path("deps/app/node_modules/peer/peer.js"), "#!/usr/bin/env node\n");
-			copy("deps/blue", "peer");
-
-			ln();
-
-			expect(realpathSync(path("deps/blue/node_modules/.bin/peer"))).toBe(path("deps/app/node_modules/peer/peer.js"));
-
-		});
-
-		it("should leave peers missing from the current package installed in the checkouts", async () => {
-			manifest("deps/blue", { name: "@x/blue", peerDependencies: { "other": "^1.0.0" } });
-			copy("deps/blue", "other");
-			ln();
-			expect(target("deps/blue", "other")).toBe(path("deps/blue/node_modules/other"));
-		});
-
-		it("should leave dependencies other than peers installed in the checkouts", async () => {
-			copy("deps/http", "peer");
-			ln();
-			expect(target("deps/http", "peer")).toBe(path("deps/http/node_modules/peer"));
-		});
-
-		it("should leave nested copies of peers in the checkouts alone", async () => {
-			copy("deps/blue/node_modules/lib", "peer");
-			ln();
-			expect(target("deps/blue/node_modules/lib", "peer")).toBe(path("deps/blue/node_modules/lib/node_modules/peer"));
-		});
-
-		it("should leave nested copies of peers in the current package alone", async () => {
-			copy("deps/app/node_modules/lodash", "peer");
-			ln();
-			expect(target("deps/app/node_modules/lodash", "peer")).toBe(path("deps/app/node_modules/lodash/node_modules/peer"));
-		});
-
-		it("should not install peers into the checkouts", async () => {
-			ln();
-			expect(existsSync(path("deps/blue/node_modules/peer"))).toBe(false);
 		});
 
 	});

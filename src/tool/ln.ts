@@ -29,7 +29,7 @@ import {
 	statSync,
 	symlinkSync
 } from "node:fs";
-import { dirname, join, parse, relative, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { cli } from "./index.core.js";
 
 
@@ -52,21 +52,20 @@ if ( import.meta.main ) {
  *   `optionalDependencies` of the current package or its members. Each linked package then brings in the checkouts
  *   named in its own `dependencies`, `peerDependencies` or `optionalDependencies`. A package shared along the chain
  *   is thus loaded once from its working tree, never also as a registry copy with distinct classes and symbols
- * - **Copies**: installed copies of a linked package are replaced with links at any depth, both in the current
- *   package and in linked checkouts, since a linked package resolves its own imports from its checkout
- * - **Peers**: the copies a linked checkout installs of the `peerDependencies` of its linked packages are replaced
- *   with links to the copies the current package resolves, so that every tool, bundlers and type checkers alike, loads
- *   a single copy of each peer. Only the copies installed for the checkout itself are replaced, those nested inside
- *   other packages are left alone, and peers the current package does not install keep the checkout copy
+ * - **Copies**: installed copies of a linked package nested at any depth in the current package, and in a monorepo
+ *   in its workspace members, are replaced with links, so that no registry copy is loaded next to the working tree
  * - **Commands**: the `bin` commands of each linked package are linked into the `.bin` folder next to it and made
  *   executable, so that npm scripts run the working tree version of a command rather than its registry release
  * - **Precedence**: where a name is found in more than one folder, the folder listed first wins
  * - **Versions**: version ranges are ignored, as a working tree may carry a version that is not released yet
  *
- * Links replace whatever the current package has installed under the same name. Inside a linked checkout, they only
- * replace installed copies and never add new packages: run `npm ci` in a checkout to restore its own copies before
- * working on it directly. Missing folders are skipped, so the same command runs
- * unchanged on every machine, including machines where some of the named folders hold no local checkouts at all.
+ * Links replace whatever the current package has installed under the same name, and nothing outside the current
+ * package is touched: a linked checkout keeps resolving its own dependencies and peers from its own `node_modules`,
+ * as settled by its own setup, so that an install in one checkout never changes what another project loads, and a
+ * checkout shared by several projects serves all of them alike. Projects running Vite or Vitest load a single copy
+ * of the packages a linked checkout shares with them through the `symlinks` plugin of `@metreeca/rack/vite`.
+ * Missing folders are skipped, so the same command runs unchanged on every machine, including machines where some of
+ * the named folders hold no local checkouts at all.
  *
  * Each package link is printed on stdout relative to the current package, as in `ln node_modules/@scope/name`;
  * links to `bin` commands are created silently, since they follow from the package links already listed above.
@@ -116,19 +115,12 @@ export function ln(...deps: readonly string[]): void {
 	);
 
 	const linked = closure(own.flatMap(path => dependencies(path, true)));
-	const roots = new Set([home, ...[...linked.values()].map(path => checkout(path))]);
 
 	linked.forEach((path, name) => link({ modules: join(home, "node_modules"), name, path }));
 
-	[...roots]
-		.flatMap(packages)
+	own
 		.flatMap(path => copies(join(path, "node_modules")))
 		.forEach(link);
-
-	new Map([...linked.values()]
-		.flatMap(peers)
-		.map(peer => [join(peer.modules, peer.name), peer])
-	).forEach(link); // keyed by link location, as members of a monorepo share the copies hoisted to its root
 
 
 	function link({ modules, name, path }: Link): void {
@@ -189,7 +181,7 @@ export function ln(...deps: readonly string[]): void {
 
 				} else if ( lstatSync(copy).isSymbolicLink() ) {
 
-					return []; // a link into another checkout, inspected as a root of its own when linked
+					return []; // a link into a checkout, whose own setup settles its copies
 
 				} else {
 
@@ -200,55 +192,12 @@ export function ln(...deps: readonly string[]): void {
 			});
 	}
 
-	function peers(path: string): readonly Link[] {
-
-		const names = Object.keys(manifest(path).peerDependencies ?? {}).filter(name => !linked.has(name));
-
-		return packages(checkout(path))
-			.map(member => join(member, "node_modules"))
-			.flatMap(modules => names.flatMap(name => {
-
-				const copy = join(modules, name);
-				const host = installed(name);
-
-				return host !== undefined
-				&& lstatSync(copy, { throwIfNoEntry: false }) !== undefined
-				&& !(existsSync(copy) && realpathSync(copy) === realpathSync(host))
-					? [{ modules, name, path: host }]
-					: [];
-
-			}));
-
-	}
-
-	function installed(name: string): string | undefined {
-		return ancestors(local).map(ancestor => join(ancestor, "node_modules", name)).find(existsSync);
-	}
-
 	function packages(path: string): readonly string[] {
 		return existsSync(join(path, "package.json")) ? [path, ...(manifest(path).workspaces ?? [])
 			.flatMap(pattern => globSync(pattern, { cwd: path }))
 			.map(member => join(path, member))
 			.filter(member => existsSync(join(member, "package.json")))
 		] : [];
-	}
-
-	function checkout(path: string): string {
-
-		const parent = ancestors(path).find(ancestor => existsSync(join(ancestor, "package.json")));
-
-		return parent !== undefined && packages(parent).includes(path) ? parent : path;
-
-	}
-
-	function ancestors(path: string): readonly string[] { // nearest first, file system root excluded
-
-		const { root } = parse(path);
-
-		return relative(root, dirname(path)).split(sep).filter(Boolean)
-			.map((_, index, segments) => join(root, ...segments.slice(0, index+1)))
-			.reverse();
-
 	}
 
 	function children(path: string): readonly string[] {

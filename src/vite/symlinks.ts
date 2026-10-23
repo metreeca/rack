@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, globSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { exports, type Package } from "resolve.exports";
 import type { Plugin } from "vite";
 
@@ -29,10 +29,14 @@ import type { Plugin } from "vite";
  *
  * Packages are looked up as Node does, from the `node_modules` nearest to the importer up through its ancestors, so
  * links hoisted to a workspace root are found from any member; imports with no importer start from the Vite root.
+ * A package the importer resolves to an installed copy is looked up again from the Vite root, so a linked checkout
+ * importing a package the project links as well loads the linked source rather than its own registry copy.
  *
- * Imports made by linked packages resolve from the checkout they are found in, peers included: link checkouts with
- * the `ln` command of `@metreeca/rack`, which shares the copies of their peers with the project, so the project and
- * its linked packages load a single copy of each peer, as libraries holding module state such as Preact hooks require.
+ * The project and its linked packages load a single copy of every linked package and of each of their
+ * `peerDependencies`, as libraries holding module state such as Preact hooks require: the links found in the
+ * `node_modules` of the Vite root and of its workspace members extend `resolve.dedupe`, so that those packages always
+ * resolve from the project, dependencies prebundled by the optimizer included, whatever copies a linked checkout
+ * installs for itself. Other dependencies of a linked package resolve from its checkout, as Node does.
  *
  * The plugin replaces `resolve.conditions`, which breaks registry packages whose exports name a condition without
  * publishing its target: Vite does not fall back to `default` when that target is missing from the installed files.
@@ -62,7 +66,8 @@ import type { Plugin } from "vite";
  *
  * @param options The resolution settings
  *
- * @returns A plugin resolving linked imports to source and leaving all others to the default resolution
+ * @returns A plugin resolving linked imports to source, deduplicating linked packages and their peers, and leaving all
+ * other imports to the default resolution
  */
 export function symlinks({
 
@@ -78,20 +83,37 @@ export function symlinks({
 
 }): Plugin {
 
+	type Manifest = Package & Readonly<{ peerDependencies?: Readonly<Record<string, string>> }>;
+
 	const $conditions = typeof conditions === "string" ? [conditions] : conditions;
 
-	const manifests = new Map<string, Package>(); // memoised by link real path
+	const manifests = new Map<string, Manifest>(); // memoised by link real path
 
 	return {
 
 		name: "symlinks",
 		enforce: "pre",
 
+		config({ root }) {
+
+			const names = links(resolve(root ?? "")).flatMap(link => {
+
+				const { name, peerDependencies } = manifest(realpathSync(link));
+
+				return [name, ...Object.keys(peerDependencies ?? {})];
+
+			});
+
+			return { resolve: { dedupe: [...new Set(names)] } };
+
+		},
+
 		resolveId(id, importer) {
 
+			const root = this.environment.config.root;
 			const name = id.match(/^(@[^/]+\/)?[^/]+/)?.[0];
-			const base = importer && isAbsolute(importer) ? dirname(importer) : this.environment.config.root;
-			const link = name && lookup(name, base);
+			const base = importer && isAbsolute(importer) ? dirname(importer) : root;
+			const link = name && (lookup(name, base) ?? lookup(name, root));
 
 			if ( link ) {
 
@@ -129,13 +151,53 @@ export function symlinks({
 
 	}
 
-	function manifest(path: string): Package {
+	function links(root: string): readonly string[] { // the links found around the root and its workspace members
+		return [...ancestors(root), ...members(root)]
+			.map(directory => join(directory, "node_modules"))
+			.flatMap(modules => children(modules)
+				.filter(entry => !entry.startsWith("."))
+				.flatMap(entry => entry.startsWith("@")
+					? children(join(modules, entry)).map(name => join(modules, entry, name))
+					: [join(modules, entry)]
+				)
+				.filter(entry => lstatSync(entry).isSymbolicLink())
+			);
+	}
+
+	function members(root: string): readonly string[] {
+
+		const path = join(root, "package.json");
+
+		const { workspaces = [] }: Readonly<{ workspaces?: readonly string[] }> = existsSync(path)
+			? JSON.parse(readFileSync(path, "utf8")) // trusted local file, not validated
+			: {};
+
+		return workspaces
+			.flatMap(pattern => globSync(pattern, { cwd: root }))
+			.map(member => join(root, member));
+
+	}
+
+	function ancestors(directory: string): readonly string[] { // the directory itself first, file system root excluded
+
+		const { root } = parse(directory);
+		const segments = relative(root, directory).split(sep).filter(Boolean);
+
+		return segments.map((_, index) => join(root, ...segments.slice(0, segments.length-index)));
+
+	}
+
+	function children(path: string): readonly string[] {
+		return statSync(path, { throwIfNoEntry: false })?.isDirectory() ? readdirSync(path) : [];
+	}
+
+	function manifest(path: string): Manifest {
 
 		const cached = manifests.get(path);
 
 		if ( cached === undefined ) {
 
-			const loaded: Package = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
+			const loaded: Manifest = JSON.parse(readFileSync(join(path, "package.json"), "utf8"));
 
 			manifests.set(path, loaded);
 

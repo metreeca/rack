@@ -71,8 +71,10 @@ describe("symlinks()", () => {
 
 	beforeAll(async () => {
 
+		file(join(project, "package.json"), JSON.stringify({ name: "project", workspaces: ["packages/*"] }));
+
 		pkg(checkout, "linked");
-		pkg(fork, "linked");
+		pkg(fork, "linked", "source", { nested: "*" });
 		pkg(other, "other", "development");
 		pkg(join(root, "scoped"), "@scope/linked");
 		pkg(installed, "installed");
@@ -83,6 +85,8 @@ describe("symlinks()", () => {
 			dep(join(project, "node_modules", name), name);
 			dep(join(bound, "node_modules", name), name);
 		});
+
+		dep(join(bound, "node_modules", "linked"), "linked"); // a registry copy of a package the project links
 
 		mkdirSync(join(project, "node_modules", "@scope"), { recursive: true });
 		mkdirSync(join(project, "packages", "nested", "node_modules"), { recursive: true });
@@ -161,12 +165,24 @@ describe("symlinks()", () => {
 			return (await server.environments.ssr.pluginContainer.resolveId(id, join(bound, "src/index.ts")))?.id;
 		}
 
-		it("should leave deduplication of peers to the default resolution", async () => {
-			expect(server.config.resolve.dedupe).not.toContain("peer");
+		it("should deduplicate linked packages", async () => {
+			expect(server.config.resolve.dedupe).toEqual(expect.arrayContaining(["linked", "@scope/linked", "bound"]));
 		});
 
-		it("should resolve peers from their checkout", async () => {
-			expect(await imported("peer")).toBe(join(bound, "node_modules", "peer", "index.js"));
+		it("should deduplicate the peers of linked packages", async () => {
+			expect(server.config.resolve.dedupe).toContain("peer");
+		});
+
+		it("should deduplicate the peers of packages linked into workspace members", async () => {
+			expect(server.config.resolve.dedupe).toContain("nested");
+		});
+
+		it("should resolve peers from the project", async () => {
+			expect(await imported("peer")).toBe(join(project, "node_modules", "peer", "index.js"));
+		});
+
+		it("should resolve linked packages installed in the checkout from the project links", async () => {
+			expect(await imported("linked")).toBe(join(checkout, "src/index.ts"));
 		});
 
 		it("should resolve other dependencies from their checkout", async () => {
