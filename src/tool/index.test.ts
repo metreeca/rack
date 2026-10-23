@@ -15,9 +15,19 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	statSync,
+	symlinkSync,
+	writeFileSync
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { cp } from "./cp.js";
 import { cli } from "./index.core.js";
 import * as tool from "./index.js";
@@ -31,31 +41,143 @@ describe("@metreeca/rack/tool", () => {
 		expect({ ...tool }).toEqual({ cp, ln, rm }); // spread drops the namespace Symbol.toStringTag key
 	});
 
+	it("should expose the command line synopsis of each tool", async () => {
+		expect([cp.usage, ln.usage, rm.usage]).toEqual(["<target> <pattern>...", "[<deps>]...", "<pattern>..."]);
+	});
+
 });
 
-describe("commands", () => {
+describe("ush", () => {
 
 	const root = resolve(import.meta.dirname, "../..");
 
 	const { bin }: { bin: Record<string, string> } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
-	it("should install the tools as commands", async () => {
-		expect(Object.keys(bin)).toEqual(["cp", "ln", "rm"]);
+	let links: string; // assigned by the setup hook
+
+	function run(command: string, ...args: readonly string[]) {
+
+		const { status, stdout, stderr } = spawnSync(join(links, command), args, { encoding: "utf8" });
+
+		return { status, stdout, stderr };
+
+	}
+
+	function ush(...args: readonly string[]) {
+		return run("ush", ...args);
+	}
+
+
+	beforeAll(async () => { // commands are run through links, as installed in node_modules/.bin
+
+		links = realpathSync(mkdtempSync(join(tmpdir(), "rack-bin-")));
+
+		["ush", "tool"].forEach(command => symlinkSync(join(root, bin.ush), join(links, command)));
+
+	});
+
+	afterAll(async () => {
+		rmSync(links, { recursive: true, force: true });
+	});
+
+
+	it("should install the tools under a single command", async () => {
+		expect(Object.keys(bin)).toEqual(["ush"]);
 	});
 
 	it.each(Object.entries(bin))("should build %s as an executable", async (_, path) => {
 		expect(statSync(join(root, path)).mode & 0o111).toBe(0o111);
 	});
 
-	it.each([
-		["cp", "<target> <pattern>..."],
-		["ln", "[<deps>]..."],
-		["rm", "<pattern>..."]
-	])("should run %s from the build", async (name, help) => {
+	describe("commands", () => {
 
-		const { status, stdout } = spawnSync(join(root, bin[name]), ["--help"], { encoding: "utf8" });
+		let folder: string; // assigned by the setup hook for each test
 
-		expect({ status, stdout }).toEqual({ status: 0, stdout: `Usage: ${name} ${help}\n` });
+		beforeEach(async () => {
+			folder = realpathSync(mkdtempSync(join(tmpdir(), "rack-ush-")));
+		});
+
+		afterEach(async () => {
+			rmSync(folder, { recursive: true, force: true });
+		});
+
+
+		it("should run the named tool on the following arguments", async () => {
+
+			const path = join(folder, "dist");
+
+			writeFileSync(path, path);
+
+			expect(ush("rm", path).status).toBe(0);
+			expect(existsSync(path)).toBe(false);
+
+		});
+
+		it.each([
+			["cp", "<target> <pattern>..."],
+			["ln", "[<deps>]..."],
+			["rm", "<pattern>..."]
+		])("should print the usage of %s under the full command", async (command, help) => {
+			expect(ush(command, "--help")).toEqual({ status: 0, stdout: `Usage: ush ${command} ${help}\n`, stderr: "" });
+		});
+
+		it("should prefix tool errors with the full command", async () => {
+			expect(ush("cp")).toEqual({
+				status: 1,
+				stdout: "",
+				stderr: "ush cp: missing target operand\nTry 'ush cp --help' for more information.\n"
+			});
+		});
+
+	});
+
+	describe("help", () => {
+
+		it.each(["--help", "-h"])("should list the tools for %s", async option => {
+			expect(ush(option)).toEqual({
+				status: 0,
+				stdout: [
+					"Usage: ush <command> [<operand>]...",
+					"",
+					"Commands:",
+					"  cp <target> <pattern>...",
+					"  ln [<deps>]...",
+					"  rm <pattern>...",
+					""
+				].join("\n"),
+				stderr: ""
+			});
+		});
+
+	});
+
+	describe("errors", () => {
+
+		const hint = "Try 'ush --help' for more information.";
+
+		it("should reject a missing command pointing to the help", async () => {
+			expect(ush()).toEqual({ status: 1, stdout: "", stderr: `ush: missing command operand\n${hint}\n` });
+		});
+
+		it.each(["mv", "toString"])("should reject the unknown command %s pointing to the help", async command => {
+			expect(ush(command)).toEqual({ status: 1, stdout: "", stderr: `ush: unknown command <${command}>\n${hint}\n` });
+		});
+
+		it("should reject options before the command pointing to the help", async () => {
+			expect(ush("--force", "rm")).toEqual({
+				status: 1,
+				stdout: "",
+				stderr: `ush: unrecognized option <--force>\n${hint}\n`
+			});
+		});
+
+		it("should name messages after the invoked command", async () => {
+			expect(run("tool")).toEqual({
+				status: 1,
+				stdout: "",
+				stderr: "tool: missing command operand\nTry 'tool --help' for more information.\n"
+			});
+		});
 
 	});
 
@@ -159,6 +281,11 @@ describe("cli()", () => {
 			expect(run([option, "a"], tool)).toBe(0);
 			expect(printed(stdout)).toBe("Usage: tool <operand>...");
 			expect(tool).not.toHaveBeenCalled();
+		});
+
+		it("should print the description below the usage line", async () => {
+			expect(cli(() => {}, "<operand>...", "tool", ["--help"], "Copies things.")).toBe(0);
+			expect(printed(stdout)).toBe("Usage: tool <operand>...\n\nCopies things.");
 		});
 
 	});

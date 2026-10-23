@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /*
  * Copyright © 2026 Metreeca srl
  *
@@ -18,18 +16,20 @@
 
 import { globSync, rmSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
-import { cli } from "./index.core.js";
 
 
-if ( import.meta.main ) {
-	process.exitCode = cli(rm, "<pattern>...");
-}
+/**
+ * The command line synopsis of {@link rm}, printed by `ush rm --help`.
+ */
+rm.usage = "<pattern>...";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Removes the files and directories matching a set of glob patterns, with their whole content.
+ *
+ * Runs on the command line as `ush rm <pattern>...`.
  *
  * Patterns matching nothing are ignored, so that the same command can run again on an already clean tree.
  *
@@ -41,7 +41,7 @@ if ( import.meta.main ) {
  * Removing build outputs, from an npm script:
  *
  * ```shell
- * rm dist docs 'src/**\/*.tsbuildinfo'
+ * ush rm dist docs 'src/**\/*.tsbuildinfo'
  * ```
  *
  * Patterns are quoted so that they reach the tool unexpanded, as shells differ in their glob support.

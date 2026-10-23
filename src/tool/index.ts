@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /*
  * Copyright © 2026 Metreeca srl
  *
@@ -17,18 +19,13 @@
 /**
  * Unix-like command line tools for npm package scripts.
  *
- * Each tool is installed as a command alongside the package and behaves the same on every platform and shell. Inside
- * npm scripts, these commands take precedence over system commands with the same name, such as the Unix `cp`.
+ * Each tool runs as a subcommand of the `ush` command installed with the package, as in `ush <tool> <operand>...`.
+ * Tools behave the same on every platform and shell, and leave system commands with the same name untouched.
+ * `ush --help` lists the available tools, and `ush <tool> --help` prints the usage of a single tool.
  *
- * Every tool lists the paths it acts on to stdout, one per line prefixed with the tool name, as in `cp src/index.css`,
- * so that a script log shows what changed on disk and which command changed it. It prints its usage with `--help`, and
- * exits with a non-zero status after printing an error message to stderr, prefixed with the tool name as well.
- *
- * | Command                               | Purpose                                                                  |
- * |---------------------------------------|--------------------------------------------------------------------------|
- * | {@link cp `cp <target> <pattern>...`} | Copies files matching glob patterns to a directory, keeping their layout |
- * | {@link rm `rm <pattern>...`}          | Removes files and directories matching glob patterns, with their content |
- * | {@link ln `ln [<deps>]...`}           | Links dependencies to their local checkouts instead of registry releases |
+ * Tools list the paths they act on to stdout, one per line prefixed with the tool name, so that a script log shows
+ * what changed on disk and which command changed it. A failing tool exits with a non-zero status after printing an
+ * error message to stderr, prefixed with its full command so that the log points to the command that failed.
  *
  * Build scripts can call the same tools as functions, passing the command operands as arguments: a function throws on
  * failure instead of printing an error message to stderr and setting a non-zero exit status for the process.
@@ -36,6 +33,62 @@
  * @module
  */
 
-export { cp } from "./cp.js";
-export { ln } from "./ln.js";
-export { rm } from "./rm.js";
+import { parse } from "node:path";
+import { cp } from "./cp.js";
+import { cli } from "./index.core.js";
+import { ln } from "./ln.js";
+import { rm } from "./rm.js";
+
+export {
+	cp,
+	ln,
+	rm
+};
+
+
+const commands = [
+	cp,
+	ln,
+	rm
+];
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+if ( import.meta.main ) {
+	process.exitCode = ush();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Runs the tool named on a command line, as in `ush rm dist`, with GNU-style help and error messages.
+ *
+ * `ush --help` lists every tool with its operands, and `ush <tool> --help` prints the usage of a single tool. Messages
+ * are prefixed with the command as invoked, as in `ush cp: missing target operand`, and messages about a malformed
+ * command line also point to the help of the command that received it, either `ush --help` or `ush <tool> --help`.
+ *
+ * @param args The script path, followed by the tool name and its operands; defaults to the process command line
+ *
+ * @returns The process exit status: `0` on success, `1` on failure
+ */
+function ush([path, name, ...operands]: readonly string[] = process.argv.slice(1)): number {
+
+	const program = parse(path).name;
+	const command = commands.find(tool => tool.name === name);
+
+	return command
+		? cli(command, command.usage, `${program} ${name}`, operands)
+		: cli(reject, "<command> [<operand>]...", program, name === undefined ? [] : [name, ...operands], listing());
+
+
+	function listing(): string {
+		return ["Commands:", ...commands.map(tool => `  ${tool.name} ${tool.usage}`)].join("\n");
+	}
+
+	function reject(operand?: string): void {
+		throw new TypeError(operand === undefined ? "missing command operand" : `unknown command <${operand}>`);
+	}
+
+}

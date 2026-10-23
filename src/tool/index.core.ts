@@ -24,13 +24,15 @@ import { parseArgs } from "node:util";
  * The tool receives the operands as its arguments, with `undefined` in place of a missing one, and throws a
  * `TypeError` on a command line it cannot act on, so that the error message also points to the help.
  *
- * `--help` and `-h` print the usage line to stdout and skip the tool. Errors go to stderr prefixed with the tool name;
- * usage errors, including unrecognized options, also point to `--help`. Operands starting with `-` follow `--`.
+ * `--help` and `-h` print the usage line to stdout, followed by the description if any, and skip the tool. Errors go to
+ * stderr prefixed with the command name; usage errors, including unrecognized options, also point to `--help`.
+ * Operands starting with `-` follow `--`, which ends option parsing as on any GNU command line.
  *
  * @param tool The tool to run on the operands
- * @param help The operand synopsis printed by `--help` after the tool name, such as `<target> <pattern>...`
- * @param name The tool name prefixing messages; defaults to the script name without extension, else the `tool` name
- * @param args The command line arguments after the script path; defaults to those the process was launched with
+ * @param help The operand synopsis printed by `--help` after the command name, such as `<target> <pattern>...`
+ * @param name The command prefixing messages, as in `ush cp`; defaults to the bare script name, else the `tool` name
+ * @param args The command line arguments after the command name; defaults to those the process was launched with
+ * @param description The text printed by `--help` below the usage line, such as a list of subcommands
  *
  * @returns The process exit status: `0` on success, `1` on failure
  */
@@ -38,7 +40,8 @@ export function cli(
 	tool: (...args: string[]) => void,
 	help: string,
 	name: string = process.argv[1] !== undefined ? parse(process.argv[1]).name : tool.name,
-	args: readonly string[] = process.argv.slice(2)
+	args: readonly string[] = process.argv.slice(2),
+	description?: string
 ): number {
 
 	const { values, positionals, tokens } = parseArgs({
@@ -59,7 +62,10 @@ export function cli(
 
 	} else if ( values.help ) {
 
-		console.log(`Usage: ${name} ${help}`);
+		console.log(description === undefined
+			? `Usage: ${name} ${help}`
+			: `Usage: ${name} ${help}\n\n${description}`
+		);
 
 		return 0;
 

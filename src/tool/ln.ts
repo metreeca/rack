@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /*
  * Copyright © 2026 Metreeca srl
  *
@@ -30,18 +28,20 @@ import {
 	symlinkSync
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import { cli } from "./index.core.js";
 
 
-if ( import.meta.main ) {
-	process.exitCode = cli(ln, "[<deps>]...");
-}
+/**
+ * The command line synopsis of {@link ln}, printed by `ush ln --help`.
+ */
+ln.usage = "[<deps>]...";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Links the local checkouts of the dependencies of the package in the current folder into its `node_modules`.
+ *
+ * Runs on the command line as `ush ln [<deps>]...`.
  *
  * The current package, and in a monorepo each of its workspace members, then builds and runs against the working
  * trees of its dependencies instead of their registry releases. Dependencies are matched to checkouts by package name.
@@ -75,13 +75,13 @@ if ( import.meta.main ) {
  * Linking the sibling checkouts of a package after a clean install, from an npm script:
  *
  * ```shell
- * npm ci && ln
+ * npm ci && ush ln
  * ```
  *
  * Linking from a folder of local dependencies elsewhere:
  *
  * ```shell
- * npm ci && ln ~/Metreeca/Packages
+ * npm ci && ush ln ~/Metreeca/Packages
  * ```
  *
  * @param deps The folders searched for local dependencies, in order of precedence; defaults to the parent folder (`..`)

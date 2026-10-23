@@ -15,6 +15,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `cp`, `ln` and `rm` run as subcommands of a single `ush` command, as in `ush rm dist`, rather than as commands of
+  their own, which shadowed system commands with the same name in npm scripts and global installs; scripts calling
+  the bare commands have to prefix them with `ush`, and error messages are prefixed with the full command
 - `ln` no longer replaces the copies installed inside linked checkouts, so an install in one checkout never changes
   what another project loads and a checkout shared by several projects serves all of them alike; checkouts that
   relied on a consumer to link their own dependencies have to run their own `npm run setup` once

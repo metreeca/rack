@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /*
  * Copyright © 2026 Metreeca srl
  *
@@ -18,18 +16,20 @@
 
 import { copyFileSync, globSync, mkdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { cli } from "./index.core.js";
 
 
-if ( import.meta.main ) {
-	process.exitCode = cli(cp, "<target> <pattern>...");
-}
+/**
+ * The command line synopsis of {@link cp}, printed by `ush cp --help`.
+ */
+cp.usage = "<target> <pattern>...";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Copies the files matching a set of glob patterns into a target directory, keeping their relative layout.
+ *
+ * Runs on the command line as `ush cp <target> <pattern>...`.
  *
  * Each match lands under `target` at its path relative to the base of its pattern, that is the leading segments free
  * of glob characters: `src/**\/*.css` copies `src/a/b.css` to `<target>/a/b.css`, and a plain file path copies the
@@ -44,7 +44,7 @@ if ( import.meta.main ) {
  * Shipping stylesheets next to the compiled modules, from an npm script:
  *
  * ```shell
- * cp dist 'src/**\/*.css'
+ * ush cp dist 'src/**\/*.css'
  * ```
  *
  * Patterns are quoted so that they reach the tool unexpanded, as shells differ in their glob support.
