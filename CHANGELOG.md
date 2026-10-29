@@ -7,7 +7,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/rack/compare/v0.6.1...HEAD)
 
-## [0.6.1](https://github.com/metreeca/rack/compare/v0.6.0...v0.6.1) - 2026-10-23
+## [0.6.1](https://github.com/metreeca/rack/compare/v0.6.0...v0.6.1) - 2026-10-29
 
 ### Fixed
 
