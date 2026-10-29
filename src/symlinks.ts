@@ -51,11 +51,12 @@ export type Manifest = Package & Readonly<{
  *
  * @param specifier The module specifier to match
  *
- * @returns The scoped or bare package name opening `specifier`, subpath excluded; `undefined` for relative and
- * absolute paths, for URLs and for `node:` builtins, which no `node_modules` lookup can resolve
+ * @returns The scoped or bare package name at the start of `specifier`, subpath excluded; `undefined` for specifiers
+ * that no `node_modules` lookup can resolve: relative and absolute paths, URLs, `node:` builtins and virtual module
+ * ids prefixed with `\0`, which bundler plugins reserve for modules with no file behind them
  */
 export function bare(specifier: string): string | undefined {
-	return specifier.match(/^(?![./]|[a-z]+:)(@[^/]+\/)?[^/]+/i)?.[0];
+	return specifier.match(/^(?![./\0]|[a-z]+:)(@[^/]+\/)?[^/]+/i)?.[0];
 }
 
 /**

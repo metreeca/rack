@@ -199,4 +199,12 @@ describe("symlinks()", () => {
 
 	});
 
+	describe("virtual modules", () => {
+
+		it("should leave virtual module ids to the default resolution", async () => {
+			expect(await resolved("\0vite/preload-helper.js")).toBeUndefined();
+		});
+
+	});
+
 });
