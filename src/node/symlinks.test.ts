@@ -285,9 +285,13 @@ describe("customConditions()", () => {
 
 	const root = realpathSync(mkdtempSync(join(tmpdir(), "rack-conditions-")));
 
-	function config(path: string, config: object) {
+	function file(path: string, content: string) {
 		mkdirSync(dirname(join(root, path)), { recursive: true });
-		writeFileSync(join(root, path), JSON.stringify(config));
+		writeFileSync(join(root, path), content);
+	}
+
+	function config(path: string, config: object) {
+		file(path, JSON.stringify(config));
 	}
 
 
@@ -306,6 +310,73 @@ describe("customConditions()", () => {
 		config("x/tsconfig.base.json", { compilerOptions: { customConditions: ["@x/source"] } });
 		config("x/tsconfig.json", { extends: "./tsconfig.base.json", compilerOptions: { strict: true } });
 		expect(customConditions(join(root, "x"))).toEqual(["@x/source"]);
+	});
+
+	it("should accept comments and trailing commas", async () => {
+		file("c/tsconfig.json", `{
+			// line comment with "quotes" and a trailing comma,
+			"compilerOptions": { /* block comment */
+				"customConditions": ["@c//source", "/* kept */",], // after a trailing comma
+			},
+		}`);
+		expect(customConditions(join(root, "c"))).toEqual(["@c//source", "/* kept */"]);
+	});
+
+	it("should accept a byte order mark", async () => {
+		file("o/tsconfig.json", `﻿${JSON.stringify({ compilerOptions: { customConditions: ["@o/source"] } })}`);
+		expect(customConditions(join(root, "o"))).toEqual(["@o/source"]);
+	});
+
+	it("should follow extends with no json extension", async () => {
+		config("e/tsconfig.base.json", { compilerOptions: { customConditions: ["@e/source"] } });
+		config("e/tsconfig.json", { extends: "./tsconfig.base" });
+		expect(customConditions(join(root, "e"))).toEqual(["@e/source"]);
+	});
+
+	it("should follow extends naming a package", async () => {
+		config("p/node_modules/@p/tsconfig/package.json", { name: "@p/tsconfig" });
+		config("p/node_modules/@p/tsconfig/tsconfig.json", { compilerOptions: { customConditions: ["@p/source"] } });
+		config("p/tsconfig.json", { extends: "@p/tsconfig" });
+		expect(customConditions(join(root, "p"))).toEqual(["@p/source"]);
+	});
+
+	it("should follow extends naming a package with a tsconfig field", async () => {
+		config("t/node_modules/@t/tsconfig/package.json", { name: "@t/tsconfig", tsconfig: "./base.json" });
+		config("t/node_modules/@t/tsconfig/base.json", { compilerOptions: { customConditions: ["@t/source"] } });
+		config("t/node_modules/@t/tsconfig/tsconfig.json", { compilerOptions: { customConditions: ["@t/ignored"] } });
+		config("t/tsconfig.json", { extends: "@t/tsconfig" });
+		expect(customConditions(join(root, "t"))).toEqual(["@t/source"]);
+	});
+
+	it("should follow extends naming a file in a package", async () => {
+		config("f/node_modules/@f/tsconfig/package.json", { name: "@f/tsconfig" });
+		config("f/node_modules/@f/tsconfig/node.json", { compilerOptions: { customConditions: ["@f/source"] } });
+		config("f/tsconfig.json", { extends: "@f/tsconfig/node.json" });
+		expect(customConditions(join(root, "f"))).toEqual(["@f/source"]);
+	});
+
+	it("should let later entries of an extends array override earlier ones", async () => {
+		config("m/one.json", { compilerOptions: { customConditions: ["@m/one"] } });
+		config("m/two.json", { compilerOptions: { customConditions: ["@m/two"] } });
+		config("m/three.json", { compilerOptions: { strict: true } });
+		config("m/tsconfig.json", { extends: ["./one.json", "./two.json", "./three.json"] });
+		expect(customConditions(join(root, "m"))).toEqual(["@m/two"]);
+	});
+
+	it("should report unresolved extends", async () => {
+		config("u/tsconfig.json", { extends: "./missing.json" });
+		expect(() => customConditions(join(root, "u"))).toThrow("./missing.json");
+	});
+
+	it("should report circular extends", async () => {
+		config("r/one.json", { extends: "./tsconfig.json" });
+		config("r/tsconfig.json", { extends: "./one.json" });
+		expect(() => customConditions(join(root, "r"))).toThrow(/circular.*tsconfig\.json/);
+	});
+
+	it("should report malformed configurations by path", async () => {
+		file("s/tsconfig.json", `{ "compilerOptions": { "customConditions": ["@s/source"] `);
+		expect(() => customConditions(join(root, "s"))).toThrow(join(root, "s/tsconfig.json"));
 	});
 
 	it("should return no conditions when no tsconfig declares any", async () => {

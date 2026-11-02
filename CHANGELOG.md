@@ -7,6 +7,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/metreeca/rack/compare/v0.6.1...HEAD)
 
+### Fixed
+
+- `@metreeca/rack/node` hooks read `tsconfig.json` chains as TypeScript does, so linked packages run from the same
+  sources `tsc` and the IDE check: configurations carrying a byte order mark, comments or trailing commas no longer
+  crash the import, and `extends` resolves extensionless paths, packages, files inside packages and arrays of bases
+- `@metreeca/rack/node` hooks fail with an error naming the offending file when a configuration in the chain is
+  malformed, extends an unresolvable base or extends itself, instead of silently running linked packages from `dist`
+
 ## [0.6.1](https://github.com/metreeca/rack/compare/v0.6.0...v0.6.1) - 2026-10-29
 
 ### Fixed

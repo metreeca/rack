@@ -26,6 +26,9 @@
  * node --import @metreeca/rack/node src/index.ts
  * ```
  *
+ * The import fails if that configuration or a base it extends is malformed, cannot be resolved or extends itself.
+ * The error names the offending file, and the process stops before running any module against the wrong sources.
+ *
  * Plain `node` runs TypeScript sources through its built-in type stripping, which supports erasable syntax only.
  * Sources using `enum`, `namespace` or parameter properties need a loader such as `tsx` registered ahead of the
  * hooks, as in `node --import tsx --import @metreeca/rack/node` or `tsx --import @metreeca/rack/node`.

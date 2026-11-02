@@ -15,7 +15,7 @@
  */
 
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import type { ResolveHookSync } from "node:module";
+import { createRequire, type ResolveHookSync } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { exports } from "resolve.exports";
@@ -171,35 +171,125 @@ export function symlinks({
 /**
  * Reads the custom export conditions a project asks its TypeScript language service to resolve.
  *
+ * Configurations are read as TypeScript reads them, so linked packages run from the same sources `tsc` and the IDE
+ * check them against. Byte order marks, comments and trailing commas are accepted. `extends` may name a relative path
+ * with or without its `.json` extension, a package through the `tsconfig` field of its manifest, or a file inside a
+ * package. It may also name an array of these, where later entries override the conditions of earlier ones.
+ *
  * @param directory The directory the search for `tsconfig.json` starts from, walking up through its ancestors
  *
  * @returns The `customConditions` of the nearest `tsconfig.json`, read through its `extends` chain where it declares
  * none of its own; empty if no configuration is found or none declares any, so that linked packages resolve to `dist`
+ *
+ * @throws Error If a configuration in the chain is malformed, extends one that cannot be resolved, or extends itself
+ * through the chain; the message names the offending file, so a broken link in the chain can be located at once
  */
 export function customConditions(directory: string): readonly string[] {
 
 	const config = join(directory, "tsconfig.json");
 	const parent = dirname(directory);
 
-	return existsSync(config) ? declared(config)
+	return existsSync(config) ? declared(config) ?? []
 		: parent === directory ? []
 			: customConditions(parent);
 
 
-	function declared(config: string): readonly string[] {
+	function declared(config: string, chain: readonly string[] = []): readonly string[] | undefined {
 
-		const { extends: base, compilerOptions }: Readonly<{
+		if ( chain.includes(config) ) {
 
-			extends?: string
-			compilerOptions?: Readonly<{ customConditions?: readonly string[] }>
+			throw new Error(`circular base configuration <${config}>`);
 
-		}> = JSON.parse(readFileSync(config, "utf8")); // trusted local file, not validated
+		} else {
 
-		const conditions = compilerOptions?.customConditions;
+			const { extends: bases = [], compilerOptions } = parsed(config);
 
-		return conditions !== undefined ? conditions
-			: base !== undefined && existsSync(resolve(dirname(config), base)) ? declared(resolve(dirname(config), base))
-				: [];
+			return compilerOptions?.customConditions ?? [bases].flat()
+				.map(base => located(base, config))
+				.reduceRight<readonly string[] | undefined>(
+					(conditions, base) => conditions ?? declared(base, [...chain, config]),
+					undefined
+				);
+
+		}
+
+	}
+
+	function parsed(config: string): Readonly<{
+
+		extends?: string | readonly string[]
+		compilerOptions?: Readonly<{ customConditions?: readonly string[] }>
+
+	}> {
+
+		const text = jsonc(readFileSync(config, "utf8"));
+
+		try {
+
+			return JSON.parse(text); // trusted local file, not validated
+
+		} catch ( error ) {
+
+			throw new Error(`malformed configuration <${config}>`, { cause: error });
+
+		}
+
+	}
+
+	function located(base: string, config: string): string {
+
+		const require = createRequire(config);
+
+		const path = [
+			() => require.resolve(base),
+			() => require.resolve(`${base}.json`),
+			() => field(require.resolve(`${base}/package.json`)),
+			() => require.resolve(`${base}/tsconfig.json`)
+		]
+			.map(resolved)
+			.find(path => path?.endsWith(".json"));
+
+		if ( path === undefined ) {
+			throw new Error(`unresolved base configuration <${base}> in <${config}>`);
+		} else {
+			return path;
+		}
+
+
+		function field(manifest: string): string {
+
+			const { tsconfig = "tsconfig.json" }: Readonly<{
+
+				tsconfig?: string
+
+			}> = JSON.parse(readFileSync(manifest, "utf8")); // trusted local file, not validated
+
+			return require.resolve(resolve(dirname(manifest), tsconfig));
+
+		}
+
+	}
+
+	function resolved(resolve: () => string): string | undefined {
+		try {
+
+			return resolve();
+
+		} catch { // not found: the next candidate may be
+
+			return undefined;
+
+		}
+	}
+
+	function jsonc(text: string): string {
+
+		const string = /"(?:\\.|[^"\\])*"/.source;
+
+		return text
+			.replace(/^﻿/, "")
+			.replace(new RegExp(`(${string})|//.*|/\\*[\\s\\S]*?\\*/`, "g"), (_, kept = "") => kept)
+			.replace(new RegExp(`(${string})|,(?=\\s*[}\\]])`, "g"), (_, kept = "") => kept);
 
 	}
 
