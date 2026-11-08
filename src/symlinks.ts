@@ -21,9 +21,14 @@ import type { Package } from "resolve.exports";
 
 
 /**
- * The package manifests read by {@link manifest}, keyed by package folder path and retained for the process lifetime.
+ * The package manifests read by {@link manifest}, keyed by package folder path and reused until their file changes.
  */
-const manifests = new Map<string, Manifest>();
+const manifests = new Map<string, Readonly<{
+
+	stamp: string // the modification time in nanoseconds and the size of the file the manifest was read from
+	manifest: Manifest
+
+}>>();
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,25 +141,32 @@ export function shared(root: string): readonly string[] {
 /**
  * Reads a package manifest.
  *
+ * Edits saved while the process runs, such as new `exports` subpaths in a linked checkout, take effect on the next
+ * call, while an unchanged manifest is reused from memory without reading its file again.
+ *
  * @param path The path of the package folder
  *
- * @returns The manifest of the package at `path`, read once per process for each distinct `path`
+ * @returns The manifest of the package at `path`, as currently saved
  */
 export function manifest(path: string): Manifest {
 
+	const file = join(path, "package.json");
+	const { mtimeNs, size } = statSync(file, { bigint: true });
+
+	const stamp = `${mtimeNs}:${size}`;
 	const cached = manifests.get(path);
 
-	if ( cached === undefined ) {
+	if ( cached?.stamp === stamp ) {
 
-		const loaded: Manifest = JSON.parse(readFileSync(join(path, "package.json"), "utf8")); // trusted local file
-
-		manifests.set(path, loaded);
-
-		return loaded;
+		return cached.manifest;
 
 	} else {
 
-		return cached;
+		const loaded: Manifest = JSON.parse(readFileSync(file, "utf8")); // trusted local file
+
+		manifests.set(path, { stamp, manifest: loaded });
+
+		return loaded;
 
 	}
 

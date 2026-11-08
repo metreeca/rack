@@ -50,7 +50,8 @@ export type Plugin = Readonly<{
  * Creates a plugin running tests against the live source of locally linked packages, with no rebuild.
  *
  * Imports of workspace members and of sibling checkouts linked into `node_modules` resolve to their TypeScript source,
- * so edits are picked up as they are saved. Packages installed from the registry keep resolving to their build.
+ * so edits are picked up as they are saved, new `exports` subpaths of a linked package included, with no restart of
+ * the dev server or watch session. Packages installed from the registry keep resolving to their published build.
  *
  * Packages are looked up as Node does, from the `node_modules` nearest to the importer up through its ancestors, so
  * links hoisted to a workspace root are found from any member; imports with no importer start from the Vite root.
