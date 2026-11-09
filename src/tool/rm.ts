@@ -19,9 +19,13 @@ import { relative, resolve, sep } from "node:path";
 
 
 /**
- * The command line synopsis of {@link rm}, printed by `ush rm --help`.
+ * The operands accepted by {@link rm}, one synopsis each.
  */
-rm.usage = "<pattern>...";
+rm.args = [
+
+	"<pattern>..."
+
+];
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -14,6 +14,8 @@
     "Variables",
     "Interfaces",
     "Type Aliases",
+    "Properties",
+    "Methods",
     "*"
   ],
   "useFirstParagraphOfCommentAsSummary": true,

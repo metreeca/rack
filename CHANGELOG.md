@@ -7,6 +7,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.7.0](https://github.com/metreeca/rack/compare/v0.6.1...HEAD)
 
+### Added
+
+- `ush ws [--open[=<page>]] <root>` previews a folder in the browser and reloads open pages whenever its content
+  changes; `--open` also opens the browser on the folder, or on one of its pages. The folder may be missing at startup
+  or rebuilt while served, so the server runs alongside generators such as `typedoc --watch` with no initial build
+- Tools accepting options take them through their `with()` method when called as functions, as in
+  `ws.with({ open: "api/" })("docs")`, and take only the operands when called directly, as `ws("docs")` does
+
+### Changed
+
+- `--help` now lists the options a tool accepts along with its operands; the operand synopsis of `cp`, `rm` and `ln`
+  moved accordingly from their `usage` string to an `args` array, with one entry per operand and no options listed
+
 ### Fixed
 
 - `@metreeca/rack/node` hooks read `tsconfig.json` chains as TypeScript does, so linked packages run from the same

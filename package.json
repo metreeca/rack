@@ -48,14 +48,13 @@
     "setup": "npm ci",
     "build": "rm -rf dist docs && tsc -p tsconfig.build.json && chmod +x dist/tool/*.js && npx typedoc",
     "check": "npx vitest --typecheck run",
-    "proof": "npx typedoc && (npx typedoc --watch & npx wds --root-dir docs --watch --open)"
+    "proof": "tsc -p tsconfig.build.json && (npx typedoc --watch & node dist/tool/index.js ws --open docs)"
   },
   "dependencies": {
     "resolve.exports": "^2.0.4"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
-    "@web/dev-server": "^1.0.0",
     "typedoc": "^0.28.14",
     "typescript": "^5.9.3",
     "vite": "^8.3.5",

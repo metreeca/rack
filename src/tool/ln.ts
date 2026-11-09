@@ -31,9 +31,13 @@ import { manifest } from "../symlinks.js";
 
 
 /**
- * The command line synopsis of {@link ln}, printed by `ush ln --help`.
+ * The operands accepted by {@link ln}, one synopsis each.
  */
-ln.usage = "[<deps>]...";
+ln.args = [
+
+	"[<deps>]..."
+
+];
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

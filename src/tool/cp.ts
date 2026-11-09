@@ -19,9 +19,14 @@ import { dirname, join, relative } from "node:path";
 
 
 /**
- * The command line synopsis of {@link cp}, printed by `ush cp --help`.
+ * The operands accepted by {@link cp}, one synopsis each.
  */
-cp.usage = "<target> <pattern>...";
+cp.args = [
+
+	"<target>",
+	"<pattern>..."
+
+];
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

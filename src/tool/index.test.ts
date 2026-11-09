@@ -29,20 +29,22 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { cp } from "./cp.js";
-import { cli } from "./index.core.js";
+import { cli, type Tool, usage } from "./index.core.js";
 import * as tool from "./index.js";
 import { ln } from "./ln.js";
 import { rm } from "./rm.js";
+import { ws } from "./ws.js";
 
 
 describe("@metreeca/rack/tool", () => {
 
 	it("should export the tools", async () => {
-		expect({ ...tool }).toEqual({ cp, ln, rm }); // spread drops the namespace Symbol.toStringTag key
+		expect({ ...tool }).toEqual({ cp, rm, ln, ws }); // spread drops the namespace Symbol.toStringTag key
 	});
 
 	it("should expose the command line synopsis of each tool", async () => {
-		expect([cp.usage, ln.usage, rm.usage]).toEqual(["<target> <pattern>...", "[<deps>]...", "<pattern>..."]);
+		expect([cp, rm, ln, ws].map(usage))
+			.toEqual(["<target> <pattern>...", "<pattern>...", "[<deps>]...", "[--open[=<page>]] <root>"]);
 	});
 
 });
@@ -115,8 +117,9 @@ describe("ush", () => {
 
 		it.each([
 			["cp", "<target> <pattern>..."],
+			["rm", "<pattern>..."],
 			["ln", "[<deps>]..."],
-			["rm", "<pattern>..."]
+			["ws", "[--open[=<page>]] <root>"]
 		])("should print the usage of %s under the full command", async (command, help) => {
 			expect(ush(command, "--help")).toEqual({ status: 0, stdout: `Usage: ush ${command} ${help}\n`, stderr: "" });
 		});
@@ -141,8 +144,9 @@ describe("ush", () => {
 					"",
 					"Commands:",
 					"  cp <target> <pattern>...",
-					"  ln [<deps>]...",
 					"  rm <pattern>...",
+					"  ln [<deps>]...",
+					"  ws [--open[=<page>]] <root>",
 					""
 				].join("\n"),
 				stderr: ""
@@ -190,8 +194,23 @@ describe("cli()", () => {
 
 	const printed = (stream: MockInstance) => stream.mock.calls.map(args => args.join(" ")).join("\n");
 
-	function run(args: readonly string[], tool: (...args: string[]) => void = () => {}) {
-		return cli(tool, "<operand>...", "tool", args);
+	/**
+	 * Creates a tool calling a body on its operands, preceded by the options it was configured with if it declares any.
+	 */
+	function command(
+		body: (...args: unknown[]) => void = () => {},
+		opts?: Readonly<Record<string, string>>,
+		args: readonly string[] = ["<operand>..."]
+	): Tool {
+		return Object.assign(body, opts === undefined ? { args } : {
+			opts,
+			args,
+			with: (options: Readonly<Record<string, string | true>>) => (...operands: string[]) => body(options, ...operands)
+		});
+	}
+
+	function run(args: readonly string[], tool: Tool = command()) {
+		return cli(tool, "tool", args);
 	}
 
 
@@ -208,31 +227,105 @@ describe("cli()", () => {
 	describe("operands", () => {
 
 		it("should pass operands to the tool and succeed", async () => {
-			const tool = vi.fn();
-			expect(run(["a", "b"], tool)).toBe(0);
-			expect(tool).toHaveBeenCalledWith("a", "b");
+			const body = vi.fn();
+			expect(run(["a", "b"], command(body))).toBe(0);
+			expect(body).toHaveBeenCalledWith("a", "b");
+		});
+
+		it("should accept fewer operands than declared", async () => {
+			const body = vi.fn();
+			expect(run([], command(body, undefined, ["<target>", "<source>"]))).toBe(0);
+			expect(body).toHaveBeenCalledWith();
+		});
+
+		it("should reject operands beyond the declared ones pointing to the help", async () => {
+			const body = vi.fn();
+			expect(run(["a", "b", "c"], command(body, undefined, ["<target>", "[<source>]"]))).toBe(1);
+			expect(printed(stderr)).toBe("tool: extra operand <c>\nTry 'tool --help' for more information.");
+			expect(body).not.toHaveBeenCalled();
 		});
 
 		it("should pass operands starting with a dash after the terminator", async () => {
-			const tool = vi.fn();
-			expect(run(["a", "--", "-b"], tool)).toBe(0);
-			expect(tool).toHaveBeenCalledWith("a", "-b");
+			const body = vi.fn();
+			expect(run(["a", "--", "-b"], command(body))).toBe(0);
+			expect(body).toHaveBeenCalledWith("a", "-b");
 		});
 
 		it("should read the command line of the process by default", async () => {
 
 			const argv = process.argv;
-			const tool = vi.fn();
+			const body = vi.fn();
 
 			try { // process.argv is swapped for the duration of the call only
 				process.argv = ["node", "tool", "a"];
-				expect(cli(tool, "<operand>...", "tool")).toBe(0);
+				expect(cli(command(body), "tool")).toBe(0);
 			} finally {
 				process.argv = argv;
 			}
 
-			expect(tool).toHaveBeenCalledWith("a");
+			expect(body).toHaveBeenCalledWith("a");
 
+		});
+
+	});
+
+	describe("options", () => {
+
+		const opts = { open: "[<page>]", port: "<n>", watch: "" };
+
+
+		it("should run the tool configured with the options set on the command line", async () => {
+			const body = vi.fn();
+			expect(run(["a", "--watch", "--open=api/", "b"], command(body, opts))).toBe(0);
+			expect(body).toHaveBeenCalledWith({ watch: true, open: "api/" }, "a", "b");
+		});
+
+		it("should map options taking an optional argument without one to an empty string", async () => {
+			const body = vi.fn();
+			expect(run(["--open", "a"], command(body, opts))).toBe(0);
+			expect(body).toHaveBeenCalledWith({ open: "" }, "a");
+		});
+
+		it("should read optional arguments only after an equals sign", async () => {
+			const body = vi.fn();
+			expect(run(["--open", "a", "b"], command(body, opts))).toBe(0);
+			expect(body).toHaveBeenCalledWith({ open: "" }, "a", "b");
+		});
+
+		it.each([
+			[["--port=9000", "a"]],
+			[["--port", "9000", "a"]]
+		])("should read required arguments after an equals sign or as the next argument in %j", async args => {
+			const body = vi.fn();
+			expect(run(args, command(body, opts))).toBe(0);
+			expect(body).toHaveBeenCalledWith({ port: "9000" }, "a");
+		});
+
+		it("should reject missing required arguments pointing to the help", async () => {
+			const body = vi.fn();
+			expect(run(["a", "--port"], command(body, opts))).toBe(1);
+			expect(printed(stderr)).toBe("tool: option <--port> requires an argument\nTry 'tool --help' for more information.");
+			expect(body).not.toHaveBeenCalled();
+		});
+
+		it("should configure the tool with no options if none is set", async () => {
+			const body = vi.fn();
+			expect(run(["a", "--", "-b"], command(body, opts))).toBe(0);
+			expect(body).toHaveBeenCalledWith({}, "a", "-b");
+		});
+
+		it("should reject arguments to options taking none pointing to the help", async () => {
+			const body = vi.fn();
+			expect(run(["--watch=yes", "a"], command(body, opts))).toBe(1);
+			expect(printed(stderr)).toBe("tool: option <--watch> takes no argument\nTry 'tool --help' for more information.");
+			expect(body).not.toHaveBeenCalled();
+		});
+
+		it("should reject undeclared options pointing to the help", async () => {
+			const body = vi.fn();
+			expect(run(["--force", "a"], command(body, opts))).toBe(1);
+			expect(printed(stderr)).toMatch(/^tool: unrecognized option <--force>\n/);
+			expect(body).not.toHaveBeenCalled();
 		});
 
 	});
@@ -248,7 +341,7 @@ describe("cli()", () => {
 
 			try { // process.argv is swapped for the duration of the call only
 				process.argv = ["node", script, "--force"];
-				expect(cli(() => {}, "<operand>...")).toBe(1);
+				expect(cli(command())).toBe(1);
 			} finally {
 				process.argv = argv;
 			}
@@ -263,7 +356,7 @@ describe("cli()", () => {
 
 			try { // process.argv is swapped for the duration of the call only
 				process.argv = ["node"];
-				expect(cli(function probe() {}, "<operand>...", undefined, ["--force"])).toBe(1);
+				expect(cli(command(function probe() {}), undefined, ["--force"])).toBe(1);
 			} finally {
 				process.argv = argv;
 			}
@@ -277,14 +370,19 @@ describe("cli()", () => {
 	describe("help", () => {
 
 		it.each(["--help", "-h"])("should print the usage for %s and skip the tool", async option => {
-			const tool = vi.fn();
-			expect(run([option, "a"], tool)).toBe(0);
+			const body = vi.fn();
+			expect(run([option, "a"], command(body))).toBe(0);
 			expect(printed(stdout)).toBe("Usage: tool <operand>...");
-			expect(tool).not.toHaveBeenCalled();
+			expect(body).not.toHaveBeenCalled();
+		});
+
+		it("should compose the usage from the options and the operands", async () => {
+			expect(run(["--help"], command(() => {}, { open: "[<page>]", port: "<n>", watch: "" }))).toBe(0);
+			expect(printed(stdout)).toBe("Usage: tool [--open[=<page>]] [--port=<n>] [--watch] <operand>...");
 		});
 
 		it("should print the description below the usage line", async () => {
-			expect(cli(() => {}, "<operand>...", "tool", ["--help"], "Copies things.")).toBe(0);
+			expect(cli(command(), "tool", ["--help"], "Copies things.")).toBe(0);
 			expect(printed(stdout)).toBe("Usage: tool <operand>...\n\nCopies things.");
 		});
 
@@ -295,19 +393,19 @@ describe("cli()", () => {
 		const hint = "Try 'tool --help' for more information.";
 
 		it("should reject unrecognized options pointing to the help", async () => {
-			const tool = vi.fn();
-			expect(run(["--force", "a"], tool)).toBe(1);
+			const body = vi.fn();
+			expect(run(["--force", "a"], command(body))).toBe(1);
 			expect(printed(stderr)).toBe(`tool: unrecognized option <--force>\n${hint}`);
-			expect(tool).not.toHaveBeenCalled();
+			expect(body).not.toHaveBeenCalled();
 		});
 
 		it("should report usage errors pointing to the help", async () => {
-			expect(run([], () => { throw new TypeError("missing operand"); })).toBe(1);
+			expect(run([], command(() => { throw new TypeError("missing operand"); }))).toBe(1);
 			expect(printed(stderr)).toBe(`tool: missing operand\n${hint}`);
 		});
 
 		it("should report other errors without pointing to the help", async () => {
-			expect(run(["a"], () => { throw new Error("failed operation"); })).toBe(1);
+			expect(run(["a"], command(() => { throw new Error("failed operation"); }))).toBe(1);
 			expect(printed(stderr)).toBe("tool: failed operation");
 		});
 
