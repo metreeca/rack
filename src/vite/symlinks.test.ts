@@ -17,7 +17,7 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { createServer, type ViteDevServer } from "vite";
+import { createServer, isFileLoadingAllowed, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { symlinks } from "./symlinks.js";
 
@@ -187,6 +187,69 @@ describe("symlinks()", () => {
 
 		it("should resolve other dependencies from their checkout", async () => {
 			expect(await imported("private")).toBe(join(bound, "node_modules", "private", "index.js"));
+		});
+
+	});
+
+	describe("file serving", () => {
+
+		function allowed(path: string, config = server.config) {
+			return isFileLoadingAllowed(config, path);
+		}
+
+		it("should allow files of linked packages", async () => {
+			expect(allowed(join(checkout, "src/index.ts"))).toBe(true);
+		});
+
+		it("should allow files of packages linked into workspace members", async () => {
+			expect(allowed(join(fork, "src/index.ts"))).toBe(true);
+		});
+
+		it("should allow dependencies installed in linked checkouts", async () => {
+			expect(allowed(join(bound, "node_modules", "private", "index.js"))).toBe(true);
+		});
+
+		it("should keep the workspace root allowed", async () => {
+			expect(allowed(join(project, "index.ts"))).toBe(true);
+		});
+
+		it("should keep files outside the workspace and linked packages denied", async () => {
+			expect(allowed(join(root, "outside.ts"))).toBe(false);
+		});
+
+		describe("with a configured allow list", () => {
+
+			const extra = join(root, "extra");
+
+			let configured: ViteDevServer; // assigned once by the setup hook
+
+			beforeAll(async () => {
+				mkdirSync(extra, { recursive: true });
+				configured = await createServer({
+					root: project,
+					configFile: false,
+					logLevel: "silent",
+					server: { middlewareMode: true, hmr: false, ws: false, fs: { allow: [extra] } },
+					plugins: [symlinks({ conditions: ["source", "development"] })]
+				});
+			});
+
+			afterAll(async () => {
+				await configured?.close();
+			});
+
+			it("should keep the configured entries allowed", async () => {
+				expect(allowed(join(extra, "index.ts"), configured.config)).toBe(true);
+			});
+
+			it("should allow files of linked packages", async () => {
+				expect(allowed(join(checkout, "src/index.ts"), configured.config)).toBe(true);
+			});
+
+			it("should leave the workspace root to the configured list", async () => {
+				expect(allowed(join(project, "index.ts"), configured.config)).toBe(false);
+			});
+
 		});
 
 	});

@@ -17,7 +17,7 @@
 import { realpathSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { exports } from "resolve.exports";
-import { bare, lookup, manifest, shared } from "../symlinks.js";
+import { bare, linked, lookup, manifest, shared } from "../symlinks.js";
 
 
 /**
@@ -34,6 +34,8 @@ export type Plugin = Readonly<{
 	enforce: "pre"
 
 	config(config: Readonly<{ root?: string }>): Readonly<{ resolve: Readonly<{ dedupe: string[] }> }> // mutable: as Vite declares it
+
+	configResolved(config: Readonly<{ root: string, server: Readonly<{ fs: Readonly<{ allow: string[] }> }> }>): void // mutable: as Vite declares it
 
 	resolveId(
 		this: Readonly<{ environment: Readonly<{ config: Readonly<{ root: string }> }> }>,
@@ -64,6 +66,10 @@ export type Plugin = Readonly<{
  * those packages always resolve from the project, dependencies prebundled by the optimizer included, whatever copies
  * a linked checkout installs. Other dependencies of a linked package resolve from its checkout, as Node does.
  *
+ * The dev server serves the files of linked checkouts wherever they live, including the dependencies each one installs.
+ * Their real paths are added to `server.fs.allow`, next to the configured entries or, if none are configured, next to
+ * the workspace root Vite allows by default. Checkouts linked after the server starts are served once it restarts.
+ *
  * The plugin replaces `resolve.conditions`, which breaks registry packages whose exports name a condition without
  * publishing its target: Vite does not fall back to `default` when that target is missing from the installed files.
  *
@@ -92,8 +98,8 @@ export type Plugin = Readonly<{
  *
  * @param options The resolution settings
  *
- * @returns A plugin resolving linked imports to source, deduplicating linked packages and their peers, and leaving all
- * other imports to the default resolution
+ * @returns A plugin resolving linked imports to source, deduplicating linked packages and their peers, letting the dev
+ * server serve linked checkouts, and leaving all other imports to the default resolution
  */
 export function symlinks({
 
@@ -118,6 +124,10 @@ export function symlinks({
 
 		config({ root }) {
 			return { resolve: { dedupe: [...shared(resolve(root ?? ""))] } };
+		},
+
+		configResolved({ root, server }) {
+			server.fs.allow.push(...linked(root)); // ;(mutation) Vite settles the list before this hook and reads it as is
 		},
 
 		resolveId(id, importer) {

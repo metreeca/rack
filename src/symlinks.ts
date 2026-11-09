@@ -92,14 +92,26 @@ export function lookup(name: string, directory: string): string | undefined {
  * members, along with the names of their `peerDependencies`, without duplicates
  */
 export function shared(root: string): readonly string[] {
+	return [...new Set(linked(root).flatMap(path => {
 
-	return [...new Set(links().flatMap(link => {
-
-		const { name, peerDependencies } = manifest(realpathSync(link));
+		const { name, peerDependencies } = manifest(path);
 
 		return [name, ...Object.keys(peerDependencies ?? {})];
 
 	}))];
+}
+
+/**
+ * Lists the checkouts a project links.
+ *
+ * @param root The project root
+ *
+ * @returns The real paths of the packages linked into the `node_modules` of `root`, of its ancestors and of its
+ * workspace members, without duplicates, even where several links point to the same checkout
+ */
+export function linked(root: string): readonly string[] {
+
+	return [...new Set(links().map(link => realpathSync(link)))];
 
 
 	function links(): readonly string[] {

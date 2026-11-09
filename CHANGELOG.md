@@ -29,6 +29,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   malformed, extends an unresolvable base or extends itself, instead of silently running linked packages from `dist`
 - Linked package manifests are read again whenever they change, so `exports` edits in a linked checkout take effect in
   a running Vite dev server or Vitest watch session, which no longer fail to resolve new subpaths until restarted
+- `symlinks` plugin lets the Vite dev server serve linked checkouts outside the workspace root, along with the
+  dependencies they install, so their files no longer fail with a 403 error; linked checkouts are added to
+  `server.fs.allow` next to its configured entries, or next to the workspace root Vite allows when none are configured
 
 ## [0.6.1](https://github.com/metreeca/rack/compare/v0.6.0...v0.6.1) - 2026-10-29
 
